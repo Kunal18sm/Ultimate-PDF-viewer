@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { usePDF } from '../../context/PDFContext';
 import type { StampPreset } from '../../types/pdf';
 import { 
@@ -42,11 +42,26 @@ export const StampPickerModal: React.FC = () => {
   const { isStampPickerOpen, setIsStampPickerOpen, addStamp, activeDoc } = usePDF();
   
   const [selectedPreset, setSelectedPreset] = useState<StampPreset>('APPROVED');
-  const [customLabel, setCustomLabel] = useState('APPROVED');
-  const [customNote, setCustomNote] = useState('Verified by Reviewer');
+  const [customLabel, setCustomLabel] = useState('');
+  const [customNote, setCustomNote] = useState('');
   const [customColor, setCustomColor] = useState('#10b981');
-  const [isCustomMode, setIsCustomMode] = useState(true); // Custom Stamp is default as requested!
+  const [isCustomMode, setIsCustomMode] = useState(true); // Custom Stamp is default
   const [stampPosition, setStampPosition] = useState<'top-right' | 'top-left' | 'center' | 'bottom-right'>('top-right');
+  
+  const labelInputRef = useRef<HTMLInputElement | null>(null);
+
+  // Auto-focus and reset text whenever modal opens
+  useEffect(() => {
+    if (isStampPickerOpen) {
+      setCustomLabel('');
+      setCustomNote('');
+      // Small timeout to guarantee DOM is rendered
+      const timer = setTimeout(() => {
+        labelInputRef.current?.focus();
+      }, 50);
+      return () => clearTimeout(timer);
+    }
+  }, [isStampPickerOpen]);
 
   if (!isStampPickerOpen || !activeDoc) return null;
 
@@ -67,7 +82,7 @@ export const StampPickerModal: React.FC = () => {
     if (isCustomMode) {
       addStamp({
         preset: 'CUSTOM',
-        label: customLabel.trim() ? customLabel.toUpperCase() : 'CUSTOM STAMP',
+        label: customLabel.trim() ? customLabel.toUpperCase() : 'APPROVED',
         note: customNote.trim() || undefined,
         color: customColor,
         pageNumber: activeDoc.currentPage,
@@ -89,8 +104,20 @@ export const StampPickerModal: React.FC = () => {
     setIsStampPickerOpen(false);
   };
 
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleApplyStamp();
+    } else if (e.key === 'Escape') {
+      setIsStampPickerOpen(false);
+    }
+  };
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-200">
+    <div 
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-200"
+      onKeyDown={handleKeyDown}
+    >
       <div className="bg-slate-900 border border-slate-700/80 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-slate-900/80">
@@ -137,36 +164,43 @@ export const StampPickerModal: React.FC = () => {
             /* Custom Stamp Inputs (Default) */
             <div className="space-y-3.5 bg-slate-800/30 p-4 rounded-xl border border-slate-800">
               <div>
-                <label className="text-xs font-medium text-slate-300 block mb-1">Stamp Title</label>
+                <label className="text-xs font-medium text-slate-300 block mb-1">
+                  Stamp Title <span className="text-slate-500 font-normal">(Press Enter to Apply)</span>
+                </label>
                 <input
+                  ref={labelInputRef}
                   type="text"
-                  placeholder="e.g. APPROVED, CONFIDENTIAL, REVIEWED BY..."
+                  placeholder="e.g. APPROVED, IMP, REVISED, DOUBT..."
                   value={customLabel}
                   onChange={(e) => setCustomLabel(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:outline-hidden focus:border-blue-500"
+                  onKeyDown={handleKeyDown}
+                  className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:outline-hidden focus:border-blue-500 transition-colors"
                 />
               </div>
 
               <div>
-                <label className="text-xs font-medium text-slate-300 block mb-1">Stamp Color</label>
-                <div className="flex items-center gap-2 flex-wrap">
+                <label className="text-xs font-medium text-slate-300 block mb-1.5">Stamp Color</label>
+                <div className="flex items-center gap-1.5 flex-wrap">
                   {['#10b981', '#3b82f6', '#ef4444', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4', '#64748b'].map(c => (
                     <button
                       key={c}
+                      type="button"
                       onClick={() => setCustomColor(c)}
-                      className={`w-7 h-7 rounded-full transition-transform cursor-pointer ${
-                        customColor === c ? 'scale-125 ring-2 ring-white ring-offset-2 ring-offset-slate-900' : 'hover:scale-110'
+                      className={`w-5 h-5 rounded-full transition-all cursor-pointer shrink-0 ${
+                        customColor === c ? 'scale-125 ring-2 ring-white ring-offset-1 ring-offset-slate-900 shadow-sm' : 'hover:scale-110 opacity-80 hover:opacity-100'
                       }`}
                       style={{ backgroundColor: c }}
                     />
                   ))}
-                  <input
-                    type="color"
-                    value={customColor}
-                    onChange={(e) => setCustomColor(e.target.value)}
-                    className="w-7 h-7 rounded-md cursor-pointer bg-transparent border-0"
-                    title="Custom Color"
-                  />
+                  <div className="relative w-5 h-5 rounded-full overflow-hidden border border-slate-600 cursor-pointer shrink-0 flex items-center justify-center hover:scale-110 transition-transform">
+                    <input
+                      type="color"
+                      value={customColor}
+                      onChange={(e) => setCustomColor(e.target.value)}
+                      className="absolute inset-0 w-8 h-8 -top-1.5 -left-1.5 cursor-pointer bg-transparent border-0"
+                      title="Custom Color Picker"
+                    />
+                  </div>
                 </div>
               </div>
             </div>
@@ -218,10 +252,11 @@ export const StampPickerModal: React.FC = () => {
             </label>
             <input
               type="text"
-              placeholder={isCustomMode ? "e.g. Verified on 2026-09-23" : currentPreset?.defaultNote}
+              placeholder={isCustomMode ? "e.g. Verified, Revise this, Important formula..." : currentPreset?.defaultNote}
               value={customNote}
               onChange={(e) => setCustomNote(e.target.value)}
-              className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:outline-hidden focus:border-blue-500"
+              onKeyDown={handleKeyDown}
+              className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:outline-hidden focus:border-blue-500 transition-colors"
             />
           </div>
 
@@ -237,6 +272,7 @@ export const StampPickerModal: React.FC = () => {
               ].map(pos => (
                 <button
                   key={pos.id}
+                  type="button"
                   onClick={() => setStampPosition(pos.id as any)}
                   className={`py-1.5 px-2 rounded-lg border text-center transition-all cursor-pointer ${
                     stampPosition === pos.id
@@ -262,11 +298,13 @@ export const StampPickerModal: React.FC = () => {
               }}
             >
               <span className="text-sm font-black tracking-wider uppercase">
-                {isCustomMode ? (customLabel || 'CUSTOM STAMP') : currentPreset?.label}
+                {isCustomMode ? (customLabel.trim() || 'STAMP PREVIEW') : currentPreset?.label}
               </span>
-              <span className="text-[10px] opacity-80 font-medium">
-                {customNote || (isCustomMode ? 'Verified by Reviewer' : currentPreset?.defaultNote)}
-              </span>
+              {(customNote.trim() || (!isCustomMode && currentPreset?.defaultNote)) && (
+                <span className="text-[10px] opacity-80 font-medium">
+                  {customNote.trim() || currentPreset?.defaultNote}
+                </span>
+              )}
             </div>
           </div>
         </div>

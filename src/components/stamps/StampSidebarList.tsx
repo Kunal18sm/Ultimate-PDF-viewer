@@ -37,7 +37,7 @@ export const StampSidebarList: React.FC = () => {
             </div>
             <p className="text-xs font-medium text-slate-400 mb-1">No Page Stamps Yet</p>
             <p className="text-[11px] text-slate-500 leading-relaxed">
-              Add stamps like APPROVED, CONFIDENTIAL, or custom tags to quickly jump back to important pages.
+              Add stamps to quickly jump back to important chapters or pages.
             </p>
           </div>
         ) : (
@@ -47,44 +47,32 @@ export const StampSidebarList: React.FC = () => {
               <div
                 key={stamp.id}
                 onClick={() => jumpToStamp(stamp)}
-                className={`group p-3 rounded-xl border transition-all cursor-pointer flex flex-col gap-1.5 relative ${
+                className={`group px-3 py-2.5 rounded-xl border transition-all cursor-pointer flex items-center justify-between ${
                   isCurrentPage
-                    ? 'bg-blue-600/10 border-blue-500/60 ring-1 ring-blue-500/20'
+                    ? 'bg-blue-600/15 border-blue-500 ring-1 ring-blue-500/40 shadow-xs'
                     : 'bg-slate-800/40 border-slate-800 hover:bg-slate-800/90 hover:border-slate-700'
                 }`}
               >
-                {/* Header: Label + Page Pill */}
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span
-                      className="w-2.5 h-2.5 rounded-full shrink-0"
-                      style={{ backgroundColor: stamp.color }}
-                    />
-                    <span 
-                      className="text-xs font-bold tracking-wider"
-                      style={{ color: stamp.color }}
-                    >
-                      {stamp.label}
-                    </span>
-                  </div>
-
-                  <span className="text-[10px] font-medium bg-slate-900 px-2 py-0.5 rounded-md text-slate-400 group-hover:text-blue-400 group-hover:bg-blue-950/80 transition-colors flex items-center gap-1">
-                    Page {stamp.pageNumber}
-                    <ArrowRight className="w-2.5 h-2.5 opacity-0 group-hover:opacity-100 transition-opacity" />
+                {/* Stamp Color Dot & Label */}
+                <div className="flex items-center gap-2.5 min-w-0 pr-2">
+                  <span
+                    className="w-2.5 h-2.5 rounded-full shrink-0 shadow-xs"
+                    style={{ backgroundColor: stamp.color }}
+                  />
+                  <span 
+                    className="text-xs font-bold tracking-wider truncate"
+                    style={{ color: stamp.color }}
+                    title={stamp.label}
+                  >
+                    {stamp.label}
                   </span>
                 </div>
 
-                {/* Subtitle / Note */}
-                {stamp.note && (
-                  <p className="text-[11px] text-slate-400 pl-4.5 line-clamp-2">
-                    {stamp.note}
-                  </p>
-                )}
-
-                {/* Footer details & Delete */}
-                <div className="flex items-center justify-between pt-1 text-[10px] text-slate-500 pl-4.5">
-                  <span>
-                    {new Date(stamp.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                {/* Page Badge & Delete Button */}
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <span className="text-[10px] font-semibold bg-slate-900 border border-slate-700/60 px-2 py-0.5 rounded-md text-slate-400 group-hover:text-blue-300 group-hover:border-blue-500/40 transition-colors flex items-center gap-1">
+                    Page {stamp.pageNumber}
+                    <ArrowRight className="w-2.5 h-2.5 opacity-0 group-hover:opacity-100 transition-opacity" />
                   </span>
 
                   <button

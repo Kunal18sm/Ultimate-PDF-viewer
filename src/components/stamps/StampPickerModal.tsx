@@ -49,10 +49,12 @@ export const StampPickerModal: React.FC = () => {
   const [stampPosition, setStampPosition] = useState<'top-right' | 'top-left' | 'center' | 'bottom-right'>('top-right');
   
   const labelInputRef = useRef<HTMLInputElement | null>(null);
+  const isSubmittingRef = useRef(false);
 
   // Auto-focus and reset text whenever modal opens
   useEffect(() => {
     if (isStampPickerOpen) {
+      isSubmittingRef.current = false;
       setCustomLabel('');
       setCustomNote('');
       // Small timeout to guarantee DOM is rendered
@@ -78,6 +80,9 @@ export const StampPickerModal: React.FC = () => {
   };
 
   const handleApplyStamp = () => {
+    if (isSubmittingRef.current) return;
+    isSubmittingRef.current = true;
+
     const coords = getCoordinatesForPosition(stampPosition);
     if (isCustomMode) {
       addStamp({
@@ -93,7 +98,7 @@ export const StampPickerModal: React.FC = () => {
       addStamp({
         preset: currentPreset.id,
         label: currentPreset.label,
-        note: customNote.trim() || currentPreset.defaultNote,
+        note: customNote.trim() || undefined,
         color: currentPreset.color,
         pageNumber: activeDoc.currentPage,
         x: coords.x,
@@ -104,11 +109,14 @@ export const StampPickerModal: React.FC = () => {
     setIsStampPickerOpen(false);
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
+  const handleInputKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
       e.preventDefault();
+      e.stopPropagation();
       handleApplyStamp();
     } else if (e.key === 'Escape') {
+      e.preventDefault();
+      e.stopPropagation();
       setIsStampPickerOpen(false);
     }
   };
@@ -116,7 +124,9 @@ export const StampPickerModal: React.FC = () => {
   return (
     <div 
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-200"
-      onKeyDown={handleKeyDown}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) setIsStampPickerOpen(false);
+      }}
     >
       <div className="bg-slate-900 border border-slate-700/80 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
         {/* Header */}
@@ -173,7 +183,7 @@ export const StampPickerModal: React.FC = () => {
                   placeholder="e.g. APPROVED, IMP, REVISED, DOUBT..."
                   value={customLabel}
                   onChange={(e) => setCustomLabel(e.target.value)}
-                  onKeyDown={handleKeyDown}
+                  onKeyDown={handleInputKeyDown}
                   className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:outline-hidden focus:border-blue-500 transition-colors"
                 />
               </div>
@@ -255,7 +265,7 @@ export const StampPickerModal: React.FC = () => {
               placeholder={isCustomMode ? "e.g. Verified, Revise this, Important formula..." : currentPreset?.defaultNote}
               value={customNote}
               onChange={(e) => setCustomNote(e.target.value)}
-              onKeyDown={handleKeyDown}
+              onKeyDown={handleInputKeyDown}
               className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:outline-hidden focus:border-blue-500 transition-colors"
             />
           </div>

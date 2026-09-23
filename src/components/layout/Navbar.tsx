@@ -15,6 +15,7 @@ import {
   Tag,
   Check,
   HardDrive,
+  Lock,
 } from 'lucide-react';
 import { StorageManagerModal } from '../common/StorageManagerModal';
 
@@ -30,6 +31,8 @@ export const Navbar: React.FC = () => {
     setIsStampPickerOpen,
     setIsShortcutsOpen,
     isAutoSaved,
+    requestProtectedDelete,
+    openPasswordSettings,
   } = usePDF();
 
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -102,7 +105,11 @@ export const Navbar: React.FC = () => {
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
-                    closeDocument(doc.id);
+                    requestProtectedDelete({
+                      title: 'Close Document Tab',
+                      itemDescription: `Are you sure you want to close "${doc.name}"? It will be removed from your active session.`,
+                      onConfirm: () => closeDocument(doc.id),
+                    });
                   }}
                   className="opacity-0 group-hover:opacity-100 p-0.5 rounded-md hover:bg-slate-700/60 text-slate-400 hover:text-white transition-opacity cursor-pointer"
                   title="Close Tab (frees RAM & deletes from cache)"
@@ -188,6 +195,15 @@ export const Navbar: React.FC = () => {
           title="Print Document"
         >
           <Printer className="w-3.5 h-3.5" />
+        </button>
+
+        {/* Master Delete Password Security */}
+        <button
+          onClick={openPasswordSettings}
+          className="p-1.5 rounded-xl bg-slate-800/60 hover:bg-slate-800 border border-slate-700/60 text-slate-300 hover:text-white cursor-pointer transition-colors"
+          title="Master Delete Password & Security Settings"
+        >
+          <Lock className="w-3.5 h-3.5 text-amber-400" />
         </button>
 
         {/* Shortcuts */}

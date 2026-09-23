@@ -17,7 +17,7 @@ interface StorageManagerModalProps {
 }
 
 export const StorageManagerModal: React.FC<StorageManagerModalProps> = ({ isOpen, onClose }) => {
-  const { documents, closeDocument } = usePDF();
+  const { documents, closeDocument, requestProtectedDelete } = usePDF();
   const [storageInfo, setStorageInfo] = useState<{ totalBytes: number; count: number }>({ totalBytes: 0, count: 0 });
 
   const refreshStorage = () => {
@@ -35,14 +35,17 @@ export const StorageManagerModal: React.FC<StorageManagerModalProps> = ({ isOpen
   const totalMb = (storageInfo.totalBytes / (1024 * 1024)).toFixed(2);
 
   const handleClearAll = async () => {
-    if (confirm('Are you sure you want to clear all saved documents from local storage? This will close all open tabs and free up memory.')) {
-      await clearAllDocumentsFromDB();
-      // Close all document tabs
-      for (const doc of documents) {
-        closeDocument(doc.id);
-      }
-      refreshStorage();
-    }
+    requestProtectedDelete({
+      title: 'Clear All Local Storage & Memory',
+      itemDescription: 'Are you sure you want to clear all saved documents from local storage and memory? All open tabs will be closed.',
+      onConfirm: async () => {
+        await clearAllDocumentsFromDB();
+        for (const doc of documents) {
+          closeDocument(doc.id);
+        }
+        refreshStorage();
+      },
+    });
   };
 
   return (
@@ -132,7 +135,16 @@ export const StorageManagerModal: React.FC<StorageManagerModalProps> = ({ isOpen
                       </div>
 
                       <button
-                        onClick={() => closeDocument(doc.id)}
+                        onClick={() => {
+                          requestProtectedDelete({
+                            title: 'Delete Document from Storage',
+                            itemDescription: `Are you sure you want to remove "${doc.name}" from local storage and close it?`,
+                            onConfirm: () => {
+                              closeDocument(doc.id);
+                              refreshStorage();
+                            },
+                          });
+                        }}
                         className="p-1.5 rounded-lg text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition-colors cursor-pointer"
                         title="Close Tab and delete from local storage"
                       >

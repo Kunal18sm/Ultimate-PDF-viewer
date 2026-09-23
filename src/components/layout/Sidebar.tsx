@@ -447,6 +447,7 @@ const AnnotationsList: React.FC<{
   onDeleteText,
   onUpdateText,
 }) => {
+  const { requestProtectedDelete } = usePDF();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
   const [editColor, setEditColor] = useState('');
@@ -568,7 +569,11 @@ const AnnotationsList: React.FC<{
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  onDeleteStroke(s.id);
+                  requestProtectedDelete({
+                    title: 'Delete Drawing',
+                    itemDescription: `Are you sure you want to delete this ${s.tool || 'pen'} drawing on Page ${s.pageNumber}?`,
+                    onConfirm: () => onDeleteStroke(s.id),
+                  });
                 }}
                 className="opacity-0 group-hover:opacity-100 text-slate-500 hover:text-red-400 p-1 rounded-md hover:bg-red-500/10 transition-all cursor-pointer"
                 title="Delete drawing"
@@ -677,7 +682,11 @@ const AnnotationsList: React.FC<{
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  onDeleteShape(sh.id);
+                  requestProtectedDelete({
+                    title: 'Delete Shape',
+                    itemDescription: `Are you sure you want to delete this ${sh.type} shape on Page ${sh.pageNumber}?`,
+                    onConfirm: () => onDeleteShape(sh.id),
+                  });
                 }}
                 className="opacity-0 group-hover:opacity-100 text-slate-500 hover:text-red-400 p-1 rounded-md hover:bg-red-500/10 transition-all cursor-pointer"
                 title="Delete shape"
@@ -783,7 +792,11 @@ const AnnotationsList: React.FC<{
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  onDeleteText(t.id);
+                  requestProtectedDelete({
+                    title: 'Delete Text Note',
+                    itemDescription: `Are you sure you want to delete this text note on Page ${t.pageNumber}?`,
+                    onConfirm: () => onDeleteText(t.id),
+                  });
                 }}
                 className="opacity-0 group-hover:opacity-100 text-slate-500 hover:text-red-400 p-1 rounded-md hover:bg-red-500/10 transition-all cursor-pointer"
                 title="Delete text note"

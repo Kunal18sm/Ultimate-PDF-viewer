@@ -152,3 +152,10 @@ export interface CurrentToolConfig {
   fillColor?: string;
   activeStampPreset?: StampPreset;
 }
+
+export interface SecurityProtectedAction {
+  title: string;
+  itemDescription?: string;
+  onConfirm: () => void;
+  isResetOnly?: boolean;
+}

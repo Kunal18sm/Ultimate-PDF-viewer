@@ -11,7 +11,8 @@ export const StampSidebarList: React.FC = () => {
     openStampEditor,
     setEditingStamp,
     showPageStamps,
-    toggleShowPageStamps
+    toggleShowPageStamps,
+    requestProtectedDelete
   } = usePDF();
 
   if (!activeDoc) {
@@ -115,7 +116,11 @@ export const StampSidebarList: React.FC = () => {
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      removeStamp(stamp.id);
+                      requestProtectedDelete({
+                        title: 'Delete Stamp',
+                        itemDescription: `Are you sure you want to delete stamp "${stamp.label}" on Page ${stamp.pageNumber}?`,
+                        onConfirm: () => removeStamp(stamp.id),
+                      });
                     }}
                     className="opacity-0 group-hover:opacity-100 p-1 rounded-md text-slate-500 hover:text-red-400 hover:bg-red-500/10 transition-all cursor-pointer"
                     title="Delete Stamp"

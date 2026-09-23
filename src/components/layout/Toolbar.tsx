@@ -59,6 +59,7 @@ export const Toolbar: React.FC = () => {
     clearPageAnnotations,
     showPageStamps,
     toggleShowPageStamps,
+    requestProtectedDelete,
   } = usePDF();
 
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -294,7 +295,13 @@ export const Toolbar: React.FC = () => {
             <Redo2 className="w-3.5 h-3.5" />
           </button>
           <button
-            onClick={() => clearPageAnnotations(currentPage)}
+            onClick={() => {
+              requestProtectedDelete({
+                title: 'Clear Page Annotations',
+                itemDescription: `Are you sure you want to erase all drawings, shapes, and notes on Page ${currentPage}?`,
+                onConfirm: () => clearPageAnnotations(currentPage),
+              });
+            }}
             className="p-1 rounded-lg text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition-colors cursor-pointer"
             title="Clear Annotations on this Page"
           >

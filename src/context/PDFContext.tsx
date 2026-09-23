@@ -9,7 +9,8 @@ import type {
   ShapeAnnotation,
   TextAnnotation,
   PageStamp,
-  SearchMatch
+  SearchMatch,
+  SecurityProtectedAction
 } from '../types/pdf';
 import { pdfjsLib } from '../utils/pdfWorker';
 import { saveDocumentsToDB, loadDocumentsFromDB, deleteDocumentFromDB } from '../utils/db';
@@ -26,6 +27,7 @@ interface PDFContextType {
   isStampPickerOpen: boolean;
   isFiltersModalOpen: boolean;
   isShortcutsOpen: boolean;
+  securityAction: SecurityProtectedAction | null;
   searchQuery: string;
   searchResults: SearchMatch[];
   currentSearchMatchIndex: number;
@@ -95,6 +97,11 @@ interface PDFContextType {
   setIsFiltersModalOpen: (open: boolean) => void;
   setIsShortcutsOpen: (open: boolean) => void;
   setLaserPosition: (pos: { x: number; y: number } | null) => void;
+  
+  // Security & Password-Protected Deletions
+  requestProtectedDelete: (action: SecurityProtectedAction) => void;
+  closeSecurityModal: () => void;
+  openPasswordSettings: () => void;
 }
 
 const defaultFilters: VisualFilters = {
@@ -134,6 +141,7 @@ export const PDFProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [showPageStamps, setShowPageStamps] = useState<boolean>(true);
   const [isFiltersModalOpen, setIsFiltersModalOpen] = useState(false);
   const [isShortcutsOpen, setIsShortcutsOpen] = useState(false);
+  const [securityAction, setSecurityAction] = useState<SecurityProtectedAction | null>(null);
   const [laserPosition, setLaserPosition] = useState<{ x: number; y: number } | null>(null);
 
   // Search state
@@ -585,6 +593,23 @@ export const PDFProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setCurrentSearchMatchIndex(0);
   }, []);
 
+  const requestProtectedDelete = useCallback((action: SecurityProtectedAction) => {
+    setSecurityAction(action);
+  }, []);
+
+  const closeSecurityModal = useCallback(() => {
+    setSecurityAction(null);
+  }, []);
+
+  const openPasswordSettings = useCallback(() => {
+    setSecurityAction({
+      title: 'Master Password Settings',
+      itemDescription: 'Change or reset your Master Delete Password',
+      isResetOnly: true,
+      onConfirm: () => {},
+    });
+  }, []);
+
   return (
     <PDFContext.Provider
       value={{
@@ -597,6 +622,10 @@ export const PDFProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         isStampPickerOpen,
         isFiltersModalOpen,
         isShortcutsOpen,
+        securityAction,
+        requestProtectedDelete,
+        closeSecurityModal,
+        openPasswordSettings,
         searchQuery,
         searchResults,
         currentSearchMatchIndex,

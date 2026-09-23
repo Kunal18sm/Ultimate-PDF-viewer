@@ -9,7 +9,7 @@ interface StampBadgeProps {
 }
 
 export const StampBadge: React.FC<StampBadgeProps> = ({ stamp }) => {
-  const { removeStamp, openStampEditor } = usePDF();
+  const { removeStamp, openStampEditor, requestProtectedDelete } = usePDF();
 
   return (
     <div
@@ -46,7 +46,11 @@ export const StampBadge: React.FC<StampBadgeProps> = ({ stamp }) => {
         <button
           onClick={(e) => {
             e.stopPropagation();
-            removeStamp(stamp.id);
+            requestProtectedDelete({
+              title: 'Delete Stamp',
+              itemDescription: `Are you sure you want to delete stamp "${stamp.label}" on Page ${stamp.pageNumber}?`,
+              onConfirm: () => removeStamp(stamp.id),
+            });
           }}
           className="bg-red-600 text-white rounded-full p-1 shadow-md hover:bg-red-500 cursor-pointer transition-transform hover:scale-110"
           title="Remove stamp"

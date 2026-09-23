@@ -7,6 +7,7 @@ import { PDFViewer } from './components/viewer/PDFViewer';
 import { StampPickerModal } from './components/stamps/StampPickerModal';
 import { VisualFiltersModal } from './components/common/VisualFiltersModal';
 import { ShortcutsModal } from './components/common/ShortcutsModal';
+import { SecurityDeleteModal } from './components/common/SecurityDeleteModal';
 
 const PDFStudioApp: React.FC = () => {
   const {
@@ -19,6 +20,7 @@ const PDFStudioApp: React.FC = () => {
     isStampPickerOpen,
     isFiltersModalOpen,
     isShortcutsOpen,
+    securityAction,
     setIsStampPickerOpen,
     setIsFiltersModalOpen,
     setIsShortcutsOpen,
@@ -28,7 +30,7 @@ const PDFStudioApp: React.FC = () => {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // Don't trigger if any modal is open
-      if (isStampPickerOpen || isFiltersModalOpen || isShortcutsOpen) {
+      if (isStampPickerOpen || isFiltersModalOpen || isShortcutsOpen || securityAction) {
         return;
       }
 
@@ -112,7 +114,7 @@ const PDFStudioApp: React.FC = () => {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [activeDoc, setTool, setZoom, setCurrentPage, undo, redo, isStampPickerOpen, isFiltersModalOpen, isShortcutsOpen, setIsStampPickerOpen, setIsFiltersModalOpen, setIsShortcutsOpen]);
+  }, [activeDoc, setTool, setZoom, setCurrentPage, undo, redo, isStampPickerOpen, isFiltersModalOpen, isShortcutsOpen, securityAction, setIsStampPickerOpen, setIsFiltersModalOpen, setIsShortcutsOpen]);
 
   return (
     <div className="h-screen w-screen flex flex-col bg-slate-950 text-slate-100 overflow-hidden font-sans">
@@ -132,6 +134,7 @@ const PDFStudioApp: React.FC = () => {
       <StampPickerModal />
       <VisualFiltersModal />
       <ShortcutsModal />
+      <SecurityDeleteModal />
     </div>
   );
 };

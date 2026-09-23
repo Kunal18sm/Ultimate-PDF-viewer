@@ -52,15 +52,22 @@ interface PDFContextType {
   
   // Annotations
   addStroke: (stroke: DrawingStroke) => void;
+  updateStroke: (strokeId: string, updates: Partial<DrawingStroke>) => void;
   addShape: (shape: ShapeAnnotation) => void;
+  updateShape: (shapeId: string, updates: Partial<ShapeAnnotation>) => void;
   addTextNote: (text: TextAnnotation) => void;
+  updateTextNote: (textId: string, updates: Partial<TextAnnotation>) => void;
   removeStroke: (id: string) => void;
   removeShape: (id: string) => void;
   removeTextNote: (id: string) => void;
   clearPageAnnotations: (pageNumber: number) => void;
   
   // Stamps & Bookmarks
+  editingStamp: PageStamp | null;
+  setEditingStamp: (stamp: PageStamp | null) => void;
+  openStampEditor: (stamp: PageStamp) => void;
   addStamp: (stamp: Omit<PageStamp, 'id' | 'createdAt'>) => void;
+  updateStamp: (stampId: string, updates: Partial<PageStamp>) => void;
   removeStamp: (stampId: string) => void;
   jumpToStamp: (stamp: PageStamp) => void;
   toggleBookmark: (pageNumber: number) => void;
@@ -120,6 +127,7 @@ export const PDFProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [activeSidebarTab, setActiveSidebarTab] = useState<'thumbnails' | 'stamps' | 'outline' | 'annotations'>('thumbnails');
   const [isStampPickerOpen, setIsStampPickerOpen] = useState(false);
+  const [editingStamp, setEditingStamp] = useState<PageStamp | null>(null);
   const [isFiltersModalOpen, setIsFiltersModalOpen] = useState(false);
   const [isShortcutsOpen, setIsShortcutsOpen] = useState(false);
   const [laserPosition, setLaserPosition] = useState<{ x: number; y: number } | null>(null);
@@ -333,6 +341,30 @@ export const PDFProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }));
   }, [updateActiveDoc, pushHistory]);
 
+  const updateStroke = useCallback((strokeId: string, updates: Partial<DrawingStroke>) => {
+    updateActiveDoc(doc => ({
+      ...doc,
+      history: pushHistory(doc),
+      strokes: doc.strokes.map(s => s.id === strokeId ? { ...s, ...updates } : s)
+    }));
+  }, [updateActiveDoc, pushHistory]);
+
+  const updateShape = useCallback((shapeId: string, updates: Partial<ShapeAnnotation>) => {
+    updateActiveDoc(doc => ({
+      ...doc,
+      history: pushHistory(doc),
+      shapes: doc.shapes.map(sh => sh.id === shapeId ? { ...sh, ...updates } : sh)
+    }));
+  }, [updateActiveDoc, pushHistory]);
+
+  const updateTextNote = useCallback((textId: string, updates: Partial<TextAnnotation>) => {
+    updateActiveDoc(doc => ({
+      ...doc,
+      history: pushHistory(doc),
+      textNotes: doc.textNotes.map(t => t.id === textId ? { ...t, ...updates } : t)
+    }));
+  }, [updateActiveDoc, pushHistory]);
+
   const removeStroke = useCallback((id: string) => {
     updateActiveDoc(doc => ({
       ...doc,
@@ -369,6 +401,11 @@ export const PDFProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [updateActiveDoc, pushHistory]);
 
   // Stamps & Bookmarks
+  const openStampEditor = useCallback((stamp: PageStamp) => {
+    setEditingStamp(stamp);
+    setIsStampPickerOpen(true);
+  }, []);
+
   const addStamp = useCallback((stampData: Omit<PageStamp, 'id' | 'createdAt'>) => {
     const newStamp: PageStamp = {
       ...stampData,
@@ -384,12 +421,21 @@ export const PDFProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setIsSidebarOpen(true);
   }, [updateActiveDoc, pushHistory]);
 
+  const updateStamp = useCallback((stampId: string, updates: Partial<PageStamp>) => {
+    updateActiveDoc(doc => ({
+      ...doc,
+      history: pushHistory(doc),
+      stamps: doc.stamps.map(s => s.id === stampId ? { ...s, ...updates } : s)
+    }));
+  }, [updateActiveDoc, pushHistory]);
+
   const removeStamp = useCallback((stampId: string) => {
     updateActiveDoc(doc => ({
       ...doc,
       history: pushHistory(doc),
       stamps: doc.stamps.filter(s => s.id !== stampId)
     }));
+    setEditingStamp(prev => prev?.id === stampId ? null : prev);
   }, [updateActiveDoc, pushHistory]);
 
   const jumpToStamp = useCallback((stamp: PageStamp) => {
@@ -561,13 +607,20 @@ export const PDFProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setTool,
         setToolConfig,
         addStroke,
+        updateStroke,
         addShape,
+        updateShape,
         addTextNote,
+        updateTextNote,
         removeStroke,
         removeShape,
         removeTextNote,
         clearPageAnnotations,
+        editingStamp,
+        setEditingStamp,
+        openStampEditor,
         addStamp,
+        updateStamp,
         removeStamp,
         jumpToStamp,
         toggleBookmark,

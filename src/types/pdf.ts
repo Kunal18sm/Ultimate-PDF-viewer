@@ -49,6 +49,7 @@ export interface Point {
 export interface DrawingStroke {
   id: string;
   tool: 'pen' | 'highlighter';
+  name?: string;
   color: string;
   size: number;
   opacity: number;
@@ -59,6 +60,7 @@ export interface DrawingStroke {
 export interface ShapeAnnotation {
   id: string;
   type: 'rect' | 'circle' | 'arrow' | 'line';
+  name?: string;
   startX: number;
   startY: number;
   endX: number;

@@ -15,7 +15,9 @@ import {
   ShieldCheck, 
   Tag, 
   X,
-  Plus
+  Plus,
+  Check,
+  Pencil
 } from 'lucide-react';
 
 const STAMP_PRESETS: Array<{
@@ -39,7 +41,15 @@ const STAMP_PRESETS: Array<{
 ];
 
 export const StampPickerModal: React.FC = () => {
-  const { isStampPickerOpen, setIsStampPickerOpen, addStamp, activeDoc } = usePDF();
+  const { 
+    isStampPickerOpen, 
+    setIsStampPickerOpen, 
+    addStamp, 
+    updateStamp,
+    editingStamp,
+    setEditingStamp,
+    activeDoc 
+  } = usePDF();
   
   const [selectedPreset, setSelectedPreset] = useState<StampPreset>('APPROVED');
   const [customLabel, setCustomLabel] = useState('');
@@ -51,19 +61,37 @@ export const StampPickerModal: React.FC = () => {
   const labelInputRef = useRef<HTMLInputElement | null>(null);
   const isSubmittingRef = useRef(false);
 
-  // Auto-focus and reset text whenever modal opens
+  // Auto-focus and initialize text / values whenever modal opens
   useEffect(() => {
     if (isStampPickerOpen) {
       isSubmittingRef.current = false;
-      setCustomLabel('');
-      setCustomNote('');
-      // Small timeout to guarantee DOM is rendered
+      if (editingStamp) {
+        setCustomLabel(editingStamp.label);
+        setCustomNote(editingStamp.note || '');
+        setCustomColor(editingStamp.color);
+        setIsCustomMode(true);
+        if (editingStamp.preset && editingStamp.preset !== 'CUSTOM') {
+          setSelectedPreset(editingStamp.preset);
+        }
+      } else {
+        setCustomLabel('');
+        setCustomNote('');
+        setCustomColor('#10b981');
+        setIsCustomMode(true);
+      }
+      
       const timer = setTimeout(() => {
         labelInputRef.current?.focus();
+        labelInputRef.current?.select();
       }, 50);
       return () => clearTimeout(timer);
     }
-  }, [isStampPickerOpen]);
+  }, [isStampPickerOpen, editingStamp]);
+
+  const handleClose = () => {
+    setEditingStamp(null);
+    setIsStampPickerOpen(false);
+  };
 
   if (!isStampPickerOpen || !activeDoc) return null;
 
@@ -84,29 +112,35 @@ export const StampPickerModal: React.FC = () => {
     isSubmittingRef.current = true;
 
     const coords = getCoordinatesForPosition(stampPosition);
-    if (isCustomMode) {
-      addStamp({
-        preset: 'CUSTOM',
-        label: customLabel.trim() ? customLabel.toUpperCase() : 'APPROVED',
-        note: customNote.trim() || undefined,
-        color: customColor,
-        pageNumber: activeDoc.currentPage,
-        x: coords.x,
-        y: coords.y,
+    const finalLabel = isCustomMode
+      ? (customLabel.trim() ? customLabel.toUpperCase() : (editingStamp ? editingStamp.label : 'APPROVED'))
+      : (currentPreset?.label || 'APPROVED');
+    const finalColor = isCustomMode ? customColor : (currentPreset?.color || customColor);
+    const finalNote = customNote.trim() || undefined;
+    const finalPreset = isCustomMode ? 'CUSTOM' : (currentPreset?.id || 'CUSTOM');
+
+    if (editingStamp) {
+      // Edit mode: update existing stamp
+      updateStamp(editingStamp.id, {
+        label: finalLabel,
+        color: finalColor,
+        note: finalNote,
+        preset: finalPreset,
       });
-    } else if (currentPreset) {
+    } else {
+      // Add mode: create new stamp
       addStamp({
-        preset: currentPreset.id,
-        label: currentPreset.label,
-        note: customNote.trim() || undefined,
-        color: currentPreset.color,
+        preset: finalPreset,
+        label: finalLabel,
+        note: finalNote,
+        color: finalColor,
         pageNumber: activeDoc.currentPage,
         x: coords.x,
         y: coords.y,
       });
     }
 
-    setIsStampPickerOpen(false);
+    handleClose();
   };
 
   const handleInputKeyDown = (e: React.KeyboardEvent) => {
@@ -117,7 +151,7 @@ export const StampPickerModal: React.FC = () => {
     } else if (e.key === 'Escape') {
       e.preventDefault();
       e.stopPropagation();
-      setIsStampPickerOpen(false);
+      handleClose();
     }
   };
 
@@ -125,7 +159,7 @@ export const StampPickerModal: React.FC = () => {
     <div 
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-200"
       onClick={(e) => {
-        if (e.target === e.currentTarget) setIsStampPickerOpen(false);
+        if (e.target === e.currentTarget) handleClose();
       }}
     >
       <div className="bg-slate-900 border border-slate-700/80 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
@@ -133,15 +167,21 @@ export const StampPickerModal: React.FC = () => {
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-slate-900/80">
           <div className="flex items-center gap-3">
             <div className="p-2 rounded-xl bg-blue-500/10 text-blue-400 border border-blue-500/20">
-              <Tag className="w-5 h-5" />
+              {editingStamp ? <Pencil className="w-5 h-5" /> : <Tag className="w-5 h-5" />}
             </div>
             <div>
-              <h3 className="font-semibold text-white text-base">Add Page Stamp & Jump Marker</h3>
-              <p className="text-xs text-slate-400">Apply to Page {activeDoc.currentPage} of {activeDoc.numPages}</p>
+              <h3 className="font-semibold text-white text-base">
+                {editingStamp ? 'Edit Page Stamp' : 'Add Page Stamp & Jump Marker'}
+              </h3>
+              <p className="text-xs text-slate-400">
+                {editingStamp 
+                  ? `Editing stamp on Page ${editingStamp.pageNumber}` 
+                  : `Apply to Page ${activeDoc.currentPage} of ${activeDoc.numPages}`}
+              </p>
             </div>
           </div>
           <button 
-            onClick={() => setIsStampPickerOpen(false)}
+            onClick={handleClose}
             className="p-1.5 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
@@ -322,7 +362,7 @@ export const StampPickerModal: React.FC = () => {
         {/* Footer actions */}
         <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-slate-800 bg-slate-900/90">
           <button
-            onClick={() => setIsStampPickerOpen(false)}
+            onClick={handleClose}
             className="px-4 py-2 rounded-xl text-xs font-medium text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
           >
             Cancel
@@ -331,8 +371,10 @@ export const StampPickerModal: React.FC = () => {
             onClick={handleApplyStamp}
             className="px-5 py-2 rounded-xl text-xs font-semibold text-white bg-blue-600 hover:bg-blue-500 transition-colors shadow-lg shadow-blue-600/30 flex items-center gap-2 cursor-pointer"
           >
-            <Plus className="w-4 h-4" />
-            Apply Stamp to Page {activeDoc.currentPage}
+            {editingStamp ? <Check className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+            {editingStamp 
+              ? 'Save Stamp Changes' 
+              : `Apply Stamp to Page ${activeDoc.currentPage}`}
           </button>
         </div>
       </div>

@@ -1,9 +1,16 @@
 import React from 'react';
 import { usePDF } from '../../context/PDFContext';
-import { Plus, Trash2, ArrowRight, Tag } from 'lucide-react';
+import { Plus, Trash2, ArrowRight, Tag, Pencil } from 'lucide-react';
 
 export const StampSidebarList: React.FC = () => {
-  const { activeDoc, jumpToStamp, removeStamp, setIsStampPickerOpen } = usePDF();
+  const { 
+    activeDoc, 
+    jumpToStamp, 
+    removeStamp, 
+    setIsStampPickerOpen,
+    openStampEditor,
+    setEditingStamp
+  } = usePDF();
 
   if (!activeDoc) {
     return (
@@ -20,7 +27,10 @@ export const StampSidebarList: React.FC = () => {
       {/* Top action button */}
       <div className="p-3 border-b border-slate-800">
         <button
-          onClick={() => setIsStampPickerOpen(true)}
+          onClick={() => {
+            setEditingStamp(null);
+            setIsStampPickerOpen(true);
+          }}
           className="w-full py-2 px-3 bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 hover:text-blue-300 border border-blue-500/30 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer shadow-xs"
         >
           <Plus className="w-3.5 h-3.5" />
@@ -68,13 +78,26 @@ export const StampSidebarList: React.FC = () => {
                   </span>
                 </div>
 
-                {/* Page Badge & Delete Button */}
+                {/* Actions: Page Badge, Edit, Delete */}
                 <div className="flex items-center gap-1.5 shrink-0">
                   <span className="text-[10px] font-semibold bg-slate-900 border border-slate-700/60 px-2 py-0.5 rounded-md text-slate-400 group-hover:text-blue-300 group-hover:border-blue-500/40 transition-colors flex items-center gap-1">
                     Page {stamp.pageNumber}
                     <ArrowRight className="w-2.5 h-2.5 opacity-0 group-hover:opacity-100 transition-opacity" />
                   </span>
 
+                  {/* Edit Stamp Button */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      openStampEditor(stamp);
+                    }}
+                    className="opacity-0 group-hover:opacity-100 p-1 rounded-md text-slate-400 hover:text-blue-400 hover:bg-blue-500/10 transition-all cursor-pointer"
+                    title="Edit Stamp (Color, Name, Note)"
+                  >
+                    <Pencil className="w-3.5 h-3.5" />
+                  </button>
+
+                  {/* Delete Stamp Button */}
                   <button
                     onClick={(e) => {
                       e.stopPropagation();

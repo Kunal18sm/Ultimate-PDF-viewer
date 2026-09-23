@@ -11,7 +11,10 @@ import {
   ChevronRight, 
   Trash2,
   FileText,
-  Loader2
+  Loader2,
+  Pencil,
+  Check,
+  X
 } from 'lucide-react';
 
 // Global thumbnail cache: Map<`${docId}_p${pageNum}`, dataUrl>
@@ -51,8 +54,11 @@ export const Sidebar: React.FC = () => {
     setActiveSidebarTab,
     setCurrentPage,
     removeStroke,
+    updateStroke,
     removeShape,
+    updateShape,
     removeTextNote,
+    updateTextNote,
   } = usePDF();
 
   const [pdfDoc, setPdfDoc] = useState<any>(null);
@@ -203,8 +209,11 @@ export const Sidebar: React.FC = () => {
             textNotes={activeDoc.textNotes}
             onJumpPage={setCurrentPage}
             onDeleteStroke={removeStroke}
+            onUpdateStroke={updateStroke}
             onDeleteShape={removeShape}
+            onUpdateShape={updateShape}
             onDeleteText={removeTextNote}
+            onUpdateText={updateTextNote}
           />
         )}
       </div>
@@ -413,23 +422,41 @@ const OutlineView: React.FC<{
   );
 };
 
+const COLOR_PALETTE = ['#ef4444', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4', '#ffffff'];
+
 const AnnotationsList: React.FC<{
   strokes: any[];
   shapes: any[];
   textNotes: any[];
   onJumpPage: (page: number) => void;
   onDeleteStroke: (id: string) => void;
+  onUpdateStroke: (id: string, updates: any) => void;
   onDeleteShape: (id: string) => void;
+  onUpdateShape: (id: string, updates: any) => void;
   onDeleteText: (id: string) => void;
+  onUpdateText: (id: string, updates: any) => void;
 }> = ({
   strokes,
   shapes,
   textNotes,
   onJumpPage,
   onDeleteStroke,
+  onUpdateStroke,
   onDeleteShape,
+  onUpdateShape,
   onDeleteText,
+  onUpdateText,
 }) => {
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editColor, setEditColor] = useState('');
+
+  const startEdit = (id: string, currentName: string, currentColor: string) => {
+    setEditingId(id);
+    setEditName(currentName || '');
+    setEditColor(currentColor);
+  };
+
   const totalCount = strokes.length + shapes.length + textNotes.length;
 
   if (totalCount === 0) {
@@ -444,83 +471,329 @@ const AnnotationsList: React.FC<{
 
   return (
     <div className="p-3 space-y-2">
-      {/* Shapes */}
-      {shapes.map(sh => (
-        <div
-          key={sh.id}
-          onClick={() => onJumpPage(sh.pageNumber)}
-          className="p-2.5 rounded-xl bg-slate-800/40 border border-slate-800 hover:bg-slate-800 flex items-center justify-between group cursor-pointer text-xs"
-        >
-          <div className="flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: sh.color }} />
-            <span className="capitalize text-slate-300 font-medium">{sh.type} shape</span>
+      {/* Freehand Strokes (Pen & Highlighter Drawings) */}
+      {strokes.map(s => {
+        const isEditing = editingId === s.id;
+        const displayName = s.name || `${s.tool} drawing`;
+
+        if (isEditing) {
+          return (
+            <div key={s.id} className="p-2.5 rounded-xl bg-slate-800/90 border border-blue-500/60 flex flex-col gap-2 text-xs animate-in fade-in duration-150 shadow-md">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-semibold text-blue-400 capitalize">Rename {s.tool} Drawing</span>
+                <span className="text-[10px] text-slate-400">p.{s.pageNumber}</span>
+              </div>
+
+              <input
+                type="text"
+                placeholder="Give drawing a name (e.g. Formula derivation)..."
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    onUpdateStroke(s.id, { name: editName.trim() || undefined, color: editColor });
+                    setEditingId(null);
+                  } else if (e.key === 'Escape') {
+                    setEditingId(null);
+                  }
+                }}
+                autoFocus
+                className="w-full px-2.5 py-1.5 bg-slate-900 border border-slate-700 rounded-lg text-xs text-white placeholder-slate-500 focus:outline-hidden focus:border-blue-500"
+              />
+
+              {/* Color swatches */}
+              <div className="flex items-center justify-between pt-1">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {COLOR_PALETTE.map(c => (
+                    <button
+                      key={c}
+                      type="button"
+                      onClick={() => setEditColor(c)}
+                      className={`w-4 h-4 rounded-full transition-all cursor-pointer ${
+                        editColor === c ? 'scale-125 ring-2 ring-white' : 'opacity-70 hover:opacity-100'
+                      }`}
+                      style={{ backgroundColor: c }}
+                    />
+                  ))}
+                </div>
+
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => setEditingId(null)}
+                    className="p-1 rounded-md text-slate-400 hover:text-white hover:bg-slate-700 transition-colors cursor-pointer"
+                    title="Cancel"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    onClick={() => {
+                      onUpdateStroke(s.id, { name: editName.trim() || undefined, color: editColor });
+                      setEditingId(null);
+                    }}
+                    className="p-1 px-2 rounded-md bg-blue-600 hover:bg-blue-500 text-white text-[11px] font-medium flex items-center gap-1 transition-colors cursor-pointer shadow-xs"
+                    title="Save"
+                  >
+                    <Check className="w-3 h-3" /> Save
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        }
+
+        return (
+          <div
+            key={s.id}
+            onClick={() => onJumpPage(s.pageNumber)}
+            className="p-2.5 rounded-xl bg-slate-800/40 border border-slate-800 hover:bg-slate-800 flex items-center justify-between group cursor-pointer text-xs transition-colors"
+          >
+            <div className="flex items-center gap-2 min-w-0 pr-2">
+              <span className="w-2.5 h-2.5 rounded-full shrink-0 shadow-xs" style={{ backgroundColor: s.color }} />
+              <span className="text-slate-200 font-medium truncate" title={displayName}>
+                {displayName}
+              </span>
+            </div>
+            <div className="flex items-center gap-1.5 shrink-0">
+              <span className="text-[10px] text-slate-500 font-mono">p.{s.pageNumber}</span>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  startEdit(s.id, s.name || '', s.color);
+                }}
+                className="opacity-0 group-hover:opacity-100 p-1 rounded-md text-slate-400 hover:text-blue-400 hover:bg-blue-500/10 transition-all cursor-pointer"
+                title="Edit / Rename drawing"
+              >
+                <Pencil className="w-3 h-3" />
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDeleteStroke(s.id);
+                }}
+                className="opacity-0 group-hover:opacity-100 text-slate-500 hover:text-red-400 p-1 rounded-md hover:bg-red-500/10 transition-all cursor-pointer"
+                title="Delete drawing"
+              >
+                <Trash2 className="w-3 h-3" />
+              </button>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="text-[10px] text-slate-500">p.{sh.pageNumber}</span>
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onDeleteShape(sh.id);
-              }}
-              className="opacity-0 group-hover:opacity-100 text-slate-500 hover:text-red-400 p-1 cursor-pointer"
-            >
-              <Trash2 className="w-3 h-3" />
-            </button>
+        );
+      })}
+
+      {/* Shapes (Rect, Circle, Arrow, Line) */}
+      {shapes.map(sh => {
+        const isEditing = editingId === sh.id;
+        const displayName = sh.name || `${sh.type} shape`;
+
+        if (isEditing) {
+          return (
+            <div key={sh.id} className="p-2.5 rounded-xl bg-slate-800/90 border border-blue-500/60 flex flex-col gap-2 text-xs animate-in fade-in duration-150 shadow-md">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-semibold text-blue-400 capitalize">Rename {sh.type} Shape</span>
+                <span className="text-[10px] text-slate-400">p.{sh.pageNumber}</span>
+              </div>
+
+              <input
+                type="text"
+                placeholder="Give shape a name..."
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    onUpdateShape(sh.id, { name: editName.trim() || undefined, color: editColor });
+                    setEditingId(null);
+                  } else if (e.key === 'Escape') {
+                    setEditingId(null);
+                  }
+                }}
+                autoFocus
+                className="w-full px-2.5 py-1.5 bg-slate-900 border border-slate-700 rounded-lg text-xs text-white placeholder-slate-500 focus:outline-hidden focus:border-blue-500"
+              />
+
+              {/* Color swatches */}
+              <div className="flex items-center justify-between pt-1">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {COLOR_PALETTE.map(c => (
+                    <button
+                      key={c}
+                      type="button"
+                      onClick={() => setEditColor(c)}
+                      className={`w-4 h-4 rounded-full transition-all cursor-pointer ${
+                        editColor === c ? 'scale-125 ring-2 ring-white' : 'opacity-70 hover:opacity-100'
+                      }`}
+                      style={{ backgroundColor: c }}
+                    />
+                  ))}
+                </div>
+
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => setEditingId(null)}
+                    className="p-1 rounded-md text-slate-400 hover:text-white hover:bg-slate-700 transition-colors cursor-pointer"
+                    title="Cancel"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    onClick={() => {
+                      onUpdateShape(sh.id, { name: editName.trim() || undefined, color: editColor });
+                      setEditingId(null);
+                    }}
+                    className="p-1 px-2 rounded-md bg-blue-600 hover:bg-blue-500 text-white text-[11px] font-medium flex items-center gap-1 transition-colors cursor-pointer shadow-xs"
+                    title="Save"
+                  >
+                    <Check className="w-3 h-3" /> Save
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        }
+
+        return (
+          <div
+            key={sh.id}
+            onClick={() => onJumpPage(sh.pageNumber)}
+            className="p-2.5 rounded-xl bg-slate-800/40 border border-slate-800 hover:bg-slate-800 flex items-center justify-between group cursor-pointer text-xs transition-colors"
+          >
+            <div className="flex items-center gap-2 min-w-0 pr-2">
+              <span className="w-2.5 h-2.5 rounded-sm shrink-0 shadow-xs" style={{ backgroundColor: sh.color }} />
+              <span className="text-slate-200 font-medium truncate capitalize" title={displayName}>
+                {displayName}
+              </span>
+            </div>
+            <div className="flex items-center gap-1.5 shrink-0">
+              <span className="text-[10px] text-slate-500 font-mono">p.{sh.pageNumber}</span>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  startEdit(sh.id, sh.name || '', sh.color);
+                }}
+                className="opacity-0 group-hover:opacity-100 p-1 rounded-md text-slate-400 hover:text-blue-400 hover:bg-blue-500/10 transition-all cursor-pointer"
+                title="Edit / Rename shape"
+              >
+                <Pencil className="w-3 h-3" />
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDeleteShape(sh.id);
+                }}
+                className="opacity-0 group-hover:opacity-100 text-slate-500 hover:text-red-400 p-1 rounded-md hover:bg-red-500/10 transition-all cursor-pointer"
+                title="Delete shape"
+              >
+                <Trash2 className="w-3 h-3" />
+              </button>
+            </div>
           </div>
-        </div>
-      ))}
+        );
+      })}
 
       {/* Text Notes */}
-      {textNotes.map(t => (
-        <div
-          key={t.id}
-          onClick={() => onJumpPage(t.pageNumber)}
-          className="p-2.5 rounded-xl bg-slate-800/40 border border-slate-800 hover:bg-slate-800 flex items-center justify-between group cursor-pointer text-xs"
-        >
-          <div className="flex items-center gap-2 max-w-[160px]">
-            <FileText className="w-3.5 h-3.5 text-blue-400 shrink-0" />
-            <span className="text-slate-300 truncate">{t.text}</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-[10px] text-slate-500">p.{t.pageNumber}</span>
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onDeleteText(t.id);
-              }}
-              className="opacity-0 group-hover:opacity-100 text-slate-500 hover:text-red-400 p-1 cursor-pointer"
-            >
-              <Trash2 className="w-3 h-3" />
-            </button>
-          </div>
-        </div>
-      ))}
+      {textNotes.map(t => {
+        const isEditing = editingId === t.id;
 
-      {/* Freehand Strokes */}
-      {strokes.map(s => (
-        <div
-          key={s.id}
-          onClick={() => onJumpPage(s.pageNumber)}
-          className="p-2.5 rounded-xl bg-slate-800/40 border border-slate-800 hover:bg-slate-800 flex items-center justify-between group cursor-pointer text-xs"
-        >
-          <div className="flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: s.color }} />
-            <span className="text-slate-300 capitalize">{s.tool} drawing</span>
+        if (isEditing) {
+          return (
+            <div key={t.id} className="p-2.5 rounded-xl bg-slate-800/90 border border-blue-500/60 flex flex-col gap-2 text-xs animate-in fade-in duration-150 shadow-md">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-semibold text-blue-400">Edit Note</span>
+                <span className="text-[10px] text-slate-400">p.{t.pageNumber}</span>
+              </div>
+
+              <input
+                type="text"
+                placeholder="Edit text note..."
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    onUpdateText(t.id, { text: editName.trim() || t.text, color: editColor });
+                    setEditingId(null);
+                  } else if (e.key === 'Escape') {
+                    setEditingId(null);
+                  }
+                }}
+                autoFocus
+                className="w-full px-2.5 py-1.5 bg-slate-900 border border-slate-700 rounded-lg text-xs text-white placeholder-slate-500 focus:outline-hidden focus:border-blue-500"
+              />
+
+              {/* Color swatches */}
+              <div className="flex items-center justify-between pt-1">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {COLOR_PALETTE.map(c => (
+                    <button
+                      key={c}
+                      type="button"
+                      onClick={() => setEditColor(c)}
+                      className={`w-4 h-4 rounded-full transition-all cursor-pointer ${
+                        editColor === c ? 'scale-125 ring-2 ring-white' : 'opacity-70 hover:opacity-100'
+                      }`}
+                      style={{ backgroundColor: c }}
+                    />
+                  ))}
+                </div>
+
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => setEditingId(null)}
+                    className="p-1 rounded-md text-slate-400 hover:text-white hover:bg-slate-700 transition-colors cursor-pointer"
+                    title="Cancel"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    onClick={() => {
+                      onUpdateText(t.id, { text: editName.trim() || t.text, color: editColor });
+                      setEditingId(null);
+                    }}
+                    className="p-1 px-2 rounded-md bg-blue-600 hover:bg-blue-500 text-white text-[11px] font-medium flex items-center gap-1 transition-colors cursor-pointer shadow-xs"
+                    title="Save"
+                  >
+                    <Check className="w-3 h-3" /> Save
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        }
+
+        return (
+          <div
+            key={t.id}
+            onClick={() => onJumpPage(t.pageNumber)}
+            className="p-2.5 rounded-xl bg-slate-800/40 border border-slate-800 hover:bg-slate-800 flex items-center justify-between group cursor-pointer text-xs transition-colors"
+          >
+            <div className="flex items-center gap-2 min-w-0 pr-2">
+              <FileText className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+              <span className="text-slate-200 font-medium truncate" title={t.text}>{t.text}</span>
+            </div>
+            <div className="flex items-center gap-1.5 shrink-0">
+              <span className="text-[10px] text-slate-500 font-mono">p.{t.pageNumber}</span>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  startEdit(t.id, t.text || '', t.color || '#3b82f6');
+                }}
+                className="opacity-0 group-hover:opacity-100 p-1 rounded-md text-slate-400 hover:text-blue-400 hover:bg-blue-500/10 transition-all cursor-pointer"
+                title="Edit text note"
+              >
+                <Pencil className="w-3 h-3" />
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDeleteText(t.id);
+                }}
+                className="opacity-0 group-hover:opacity-100 text-slate-500 hover:text-red-400 p-1 rounded-md hover:bg-red-500/10 transition-all cursor-pointer"
+                title="Delete text note"
+              >
+                <Trash2 className="w-3 h-3" />
+              </button>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="text-[10px] text-slate-500">p.{s.pageNumber}</span>
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onDeleteStroke(s.id);
-              }}
-              className="opacity-0 group-hover:opacity-100 text-slate-500 hover:text-red-400 p-1 cursor-pointer"
-            >
-              <Trash2 className="w-3 h-3" />
-            </button>
-          </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 };

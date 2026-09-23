@@ -28,14 +28,29 @@ export const Sidebar: React.FC = () => {
 
   const [pdfDoc, setPdfDoc] = useState<any>(null);
 
+  // Load PDF.js document when activeDoc changes
   useEffect(() => {
+    let isCancelled = false;
+
     if (!activeDoc?.arrayBuffer) {
       setPdfDoc(null);
       return;
     }
+
     pdfjsLib.getDocument({ data: new Uint8Array(activeDoc.arrayBuffer.slice(0)) }).promise
-      .then(setPdfDoc)
-      .catch(console.error);
+      .then((doc) => {
+        if (!isCancelled) {
+          setPdfDoc(doc);
+        }
+      })
+      .catch(err => {
+        console.error('Sidebar PDF load error:', err);
+        if (!isCancelled) setPdfDoc(null);
+      });
+
+    return () => {
+      isCancelled = true;
+    };
   }, [activeDoc?.id, activeDoc?.arrayBuffer]);
 
   if (!isSidebarOpen) {
@@ -119,20 +134,30 @@ export const Sidebar: React.FC = () => {
         </button>
       </div>
 
-      {/* Tab Content */}
+      {/* Tab Content (Keyed by activeDoc.id to guarantee 100% accurate per-doc content) */}
       <div className="flex-1 overflow-y-auto">
         {activeSidebarTab === 'thumbnails' && (
-          <ThumbnailsGrid pdfDoc={pdfDoc} numPages={activeDoc.numPages} currentPage={activeDoc.currentPage} onPageSelect={setCurrentPage} />
+          <ThumbnailsGrid
+            key={`thumbs-grid-${activeDoc.id}`}
+            docId={activeDoc.id}
+            pdfDoc={pdfDoc}
+            numPages={activeDoc.numPages}
+            currentPage={activeDoc.currentPage}
+            onPageSelect={setCurrentPage}
+          />
         )}
 
-        {activeSidebarTab === 'stamps' && <StampSidebarList />}
+        {activeSidebarTab === 'stamps' && (
+          <StampSidebarList key={`stamps-view-${activeDoc.id}`} />
+        )}
 
         {activeSidebarTab === 'outline' && (
-          <OutlineView outline={activeDoc.outline} onJumpPage={setCurrentPage} />
+          <OutlineView key={`outline-view-${activeDoc.id}`} outline={activeDoc.outline} onJumpPage={setCurrentPage} />
         )}
 
         {activeSidebarTab === 'annotations' && (
           <AnnotationsList
+            key={`annots-view-${activeDoc.id}`}
             strokes={activeDoc.strokes}
             shapes={activeDoc.shapes}
             textNotes={activeDoc.textNotes}
@@ -153,17 +178,18 @@ export const Sidebar: React.FC = () => {
   );
 };
 
-// Lazy-Loaded Thumbnail Item with IntersectionObserver for ultra-fast sidebar scrolling
+// Lazy-Loaded Thumbnail Item with IntersectionObserver scoped to specific document
 const ThumbnailItem: React.FC<{
+  docId: string;
   pdfDoc: any;
   pageNum: number;
   isSelected: boolean;
   onClick: () => void;
-}> = ({ pdfDoc, pageNum, isSelected, onClick }) => {
+}> = ({ docId, pdfDoc, pageNum, isSelected, onClick }) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [isVisible, setIsVisible] = useState(false);
-  const isRenderedRef = useRef(false);
+  const renderedDocIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     const el = containerRef.current;
@@ -176,16 +202,16 @@ const ThumbnailItem: React.FC<{
           observer.disconnect();
         }
       },
-      { rootMargin: '100px' }
+      { rootMargin: '120px' }
     );
 
     observer.observe(el);
     return () => observer.disconnect();
-  }, []);
+  }, [docId]);
 
   useEffect(() => {
     let isCancelled = false;
-    if (!pdfDoc || !isVisible || isRenderedRef.current) return;
+    if (!pdfDoc || !isVisible || renderedDocIdRef.current === `${docId}_${pageNum}`) return;
 
     pdfDoc.getPage(pageNum).then((page: any) => {
       if (isCancelled) return;
@@ -199,14 +225,16 @@ const ThumbnailItem: React.FC<{
       if (!ctx) return;
 
       page.render({ canvasContext: ctx, viewport }).promise.then(() => {
-        if (!isCancelled) isRenderedRef.current = true;
+        if (!isCancelled) {
+          renderedDocIdRef.current = `${docId}_${pageNum}`;
+        }
       }).catch(() => {});
     }).catch(() => {});
 
     return () => {
       isCancelled = true;
     };
-  }, [pdfDoc, pageNum, isVisible]);
+  }, [docId, pdfDoc, pageNum, isVisible]);
 
   return (
     <div
@@ -234,16 +262,18 @@ const ThumbnailItem: React.FC<{
 };
 
 const ThumbnailsGrid: React.FC<{
+  docId: string;
   pdfDoc: any;
   numPages: number;
   currentPage: number;
   onPageSelect: (page: number) => void;
-}> = ({ pdfDoc, numPages, currentPage, onPageSelect }) => {
+}> = ({ docId, pdfDoc, numPages, currentPage, onPageSelect }) => {
   return (
     <div className="p-3 grid grid-cols-2 gap-2.5">
       {Array.from({ length: numPages }, (_, i) => i + 1).map(pageNum => (
         <ThumbnailItem
-          key={pageNum}
+          key={`thumb-${docId}-p-${pageNum}`}
+          docId={docId}
           pdfDoc={pdfDoc}
           pageNum={pageNum}
           isSelected={currentPage === pageNum}

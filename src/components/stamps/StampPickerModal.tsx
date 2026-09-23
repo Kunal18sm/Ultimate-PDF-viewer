@@ -40,6 +40,8 @@ const STAMP_PRESETS: Array<{
   { id: 'REJECTED', label: 'REJECTED', defaultNote: 'Needs Revision', color: '#e11d48', icon: XCircle },
 ];
 
+const STAMP_COLORS = ['#10b981', '#3b82f6', '#ef4444', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4', '#64748b'];
+
 export const StampPickerModal: React.FC = () => {
   const { 
     isStampPickerOpen, 
@@ -59,6 +61,7 @@ export const StampPickerModal: React.FC = () => {
   const [stampPosition, setStampPosition] = useState<'top-right' | 'top-left' | 'center' | 'bottom-right'>('top-right');
   
   const labelInputRef = useRef<HTMLInputElement | null>(null);
+  const colorButtonsRef = useRef<(HTMLButtonElement | null)[]>([]);
   const isSubmittingRef = useRef(false);
 
   // Auto-focus and initialize text / values whenever modal opens
@@ -143,8 +146,39 @@ export const StampPickerModal: React.FC = () => {
     handleClose();
   };
 
-  const handleInputKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
+  // Keyboard navigation from Title input -> Color palette
+  const handleTitleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' || e.key === 'ArrowDown') {
+      e.preventDefault();
+      e.stopPropagation();
+      // Move focus to current or first color swatch
+      const curIdx = STAMP_COLORS.indexOf(customColor);
+      const targetIdx = curIdx >= 0 ? curIdx : 0;
+      colorButtonsRef.current[targetIdx]?.focus();
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      e.stopPropagation();
+      handleClose();
+    }
+  };
+
+  // Keyboard navigation between color buttons using Arrow keys and Enter to save
+  const handleColorKeyDown = (index: number, e: React.KeyboardEvent) => {
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+      e.preventDefault();
+      const nextIdx = (index + 1) % STAMP_COLORS.length;
+      setCustomColor(STAMP_COLORS[nextIdx]);
+      colorButtonsRef.current[nextIdx]?.focus();
+    } else if (e.key === 'ArrowLeft') {
+      e.preventDefault();
+      const prevIdx = (index - 1 + STAMP_COLORS.length) % STAMP_COLORS.length;
+      setCustomColor(STAMP_COLORS[prevIdx]);
+      colorButtonsRef.current[prevIdx]?.focus();
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      // Move back to title input
+      labelInputRef.current?.focus();
+    } else if (e.key === 'Enter') {
       e.preventDefault();
       e.stopPropagation();
       handleApplyStamp();
@@ -215,7 +249,7 @@ export const StampPickerModal: React.FC = () => {
             <div className="space-y-3.5 bg-slate-800/30 p-4 rounded-xl border border-slate-800">
               <div>
                 <label className="text-xs font-medium text-slate-300 block mb-1">
-                  Stamp Title <span className="text-slate-500 font-normal">(Press Enter to Apply)</span>
+                  Stamp Title <span className="text-blue-400 font-normal">(Press Enter to choose Color)</span>
                 </label>
                 <input
                   ref={labelInputRef}
@@ -223,23 +257,32 @@ export const StampPickerModal: React.FC = () => {
                   placeholder="e.g. APPROVED, IMP, REVISED, DOUBT..."
                   value={customLabel}
                   onChange={(e) => setCustomLabel(e.target.value)}
-                  onKeyDown={handleInputKeyDown}
+                  onKeyDown={handleTitleKeyDown}
                   className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:outline-hidden focus:border-blue-500 transition-colors"
                 />
               </div>
 
               <div>
-                <label className="text-xs font-medium text-slate-300 block mb-1.5">Stamp Color</label>
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  {['#10b981', '#3b82f6', '#ef4444', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4', '#64748b'].map(c => (
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-xs font-medium text-slate-300">Stamp Color</label>
+                  <span className="text-[10px] text-slate-400 font-normal">← → Arrow keys to change, Enter to Save</span>
+                </div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  {STAMP_COLORS.map((c, idx) => (
                     <button
                       key={c}
+                      ref={(el) => { colorButtonsRef.current[idx] = el; }}
                       type="button"
+                      tabIndex={0}
                       onClick={() => setCustomColor(c)}
-                      className={`w-5 h-5 rounded-full transition-all cursor-pointer shrink-0 ${
-                        customColor === c ? 'scale-125 ring-2 ring-white ring-offset-1 ring-offset-slate-900 shadow-sm' : 'hover:scale-110 opacity-80 hover:opacity-100'
+                      onKeyDown={(e) => handleColorKeyDown(idx, e)}
+                      className={`w-5 h-5 rounded-full transition-all cursor-pointer shrink-0 focus:outline-hidden ${
+                        customColor === c 
+                          ? 'scale-125 ring-2 ring-white ring-offset-1 ring-offset-slate-900 shadow-sm' 
+                          : 'hover:scale-110 opacity-80 hover:opacity-100 focus:ring-2 focus:ring-blue-400 focus:ring-offset-1 focus:ring-offset-slate-900'
                       }`}
                       style={{ backgroundColor: c }}
+                      title={`Color ${c} (Press Enter to apply)`}
                     />
                   ))}
                   <div className="relative w-5 h-5 rounded-full overflow-hidden border border-slate-600 cursor-pointer shrink-0 flex items-center justify-center hover:scale-110 transition-transform">
@@ -305,7 +348,14 @@ export const StampPickerModal: React.FC = () => {
               placeholder={isCustomMode ? "e.g. Verified, Revise this, Important formula..." : currentPreset?.defaultNote}
               value={customNote}
               onChange={(e) => setCustomNote(e.target.value)}
-              onKeyDown={handleInputKeyDown}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  handleApplyStamp();
+                } else if (e.key === 'Escape') {
+                  handleClose();
+                }
+              }}
               className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:outline-hidden focus:border-blue-500 transition-colors"
             />
           </div>

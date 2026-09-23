@@ -71,6 +71,9 @@ interface PDFContextType {
   removeStamp: (stampId: string) => void;
   jumpToStamp: (stamp: PageStamp) => void;
   toggleBookmark: (pageNumber: number) => void;
+  showPageStamps: boolean;
+  setShowPageStamps: (show: boolean | ((prev: boolean) => boolean)) => void;
+  toggleShowPageStamps: () => void;
   
   // History
   undo: () => void;
@@ -128,6 +131,7 @@ export const PDFProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [activeSidebarTab, setActiveSidebarTab] = useState<'thumbnails' | 'stamps' | 'outline' | 'annotations'>('thumbnails');
   const [isStampPickerOpen, setIsStampPickerOpen] = useState(false);
   const [editingStamp, setEditingStamp] = useState<PageStamp | null>(null);
+  const [showPageStamps, setShowPageStamps] = useState<boolean>(true);
   const [isFiltersModalOpen, setIsFiltersModalOpen] = useState(false);
   const [isShortcutsOpen, setIsShortcutsOpen] = useState(false);
   const [laserPosition, setLaserPosition] = useState<{ x: number; y: number } | null>(null);
@@ -442,6 +446,10 @@ export const PDFProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setCurrentPage(stamp.pageNumber);
   }, [setCurrentPage]);
 
+  const toggleShowPageStamps = useCallback(() => {
+    setShowPageStamps(prev => !prev);
+  }, []);
+
   const toggleBookmark = useCallback((pageNumber: number) => {
     updateActiveDoc(doc => {
       const exists = doc.bookmarks.includes(pageNumber);
@@ -624,6 +632,9 @@ export const PDFProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         removeStamp,
         jumpToStamp,
         toggleBookmark,
+        showPageStamps,
+        setShowPageStamps,
+        toggleShowPageStamps,
         undo,
         redo,
         canUndo,

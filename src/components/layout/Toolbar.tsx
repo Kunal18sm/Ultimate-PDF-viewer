@@ -25,7 +25,9 @@ import {
   FileText,
   Rows3,
   Columns2,
-  ChevronDown
+  ChevronDown,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 import { TextSearchBox } from '../common/TextSearchBox';
 
@@ -55,6 +57,8 @@ export const Toolbar: React.FC = () => {
     canUndo,
     canRedo,
     clearPageAnnotations,
+    showPageStamps,
+    toggleShowPageStamps,
   } = usePDF();
 
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -352,6 +356,22 @@ export const Toolbar: React.FC = () => {
           title="Rotate 90° Clockwise"
         >
           <RotateCw className="w-4 h-4" />
+        </button>
+
+        {/* Toggle Hide/Show Stamps on Page */}
+        <button
+          onClick={toggleShowPageStamps}
+          className={`p-1.5 px-2 rounded-xl border transition-all cursor-pointer flex items-center gap-1.5 text-xs font-medium ${
+            showPageStamps
+              ? 'bg-slate-800/60 hover:bg-slate-800 border-slate-700/60 text-slate-300 hover:text-white'
+              : 'bg-amber-500/20 border-amber-500/50 text-amber-300 hover:bg-amber-500/30'
+          }`}
+          title={showPageStamps ? 'Hide Stamps on PDF Page' : 'Show Stamps on PDF Page'}
+        >
+          {showPageStamps ? <Eye className="w-4 h-4 text-blue-400" /> : <EyeOff className="w-4 h-4 text-amber-400" />}
+          <span className="hidden lg:inline text-[11px] whitespace-nowrap">
+            {showPageStamps ? 'Stamps On' : 'Stamps Off'}
+          </span>
         </button>
 
         {/* Zoom Controls */}

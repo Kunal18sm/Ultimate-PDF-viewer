@@ -26,7 +26,7 @@ export const PageRenderer: React.FC<PageRendererProps> = ({
   rotation,
   filters,
 }) => {
-  const { activeDoc, toggleBookmark, searchQuery } = usePDF();
+  const { activeDoc, toggleBookmark, searchQuery, showPageStamps } = usePDF();
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const textLayerRef = useRef<HTMLDivElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -196,7 +196,7 @@ export const PageRenderer: React.FC<PageRendererProps> = ({
       )}
 
       {/* Visual Stamps Overlay */}
-      {pageStamps.map(stamp => (
+      {showPageStamps && pageStamps.map(stamp => (
         <StampBadge key={stamp.id} stamp={stamp} />
       ))}
 

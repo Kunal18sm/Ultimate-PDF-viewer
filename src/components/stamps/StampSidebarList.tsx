@@ -1,6 +1,6 @@
 import React from 'react';
 import { usePDF } from '../../context/PDFContext';
-import { Plus, Trash2, ArrowRight, Tag, Pencil } from 'lucide-react';
+import { Plus, Trash2, ArrowRight, Tag, Pencil, Eye, EyeOff } from 'lucide-react';
 
 export const StampSidebarList: React.FC = () => {
   const { 
@@ -9,7 +9,9 @@ export const StampSidebarList: React.FC = () => {
     removeStamp, 
     setIsStampPickerOpen,
     openStampEditor,
-    setEditingStamp
+    setEditingStamp,
+    showPageStamps,
+    toggleShowPageStamps
   } = usePDF();
 
   if (!activeDoc) {
@@ -24,17 +26,29 @@ export const StampSidebarList: React.FC = () => {
 
   return (
     <div className="flex flex-col h-full">
-      {/* Top action button */}
-      <div className="p-3 border-b border-slate-800">
+      {/* Top action buttons */}
+      <div className="p-3 border-b border-slate-800 flex items-center gap-2">
         <button
           onClick={() => {
             setEditingStamp(null);
             setIsStampPickerOpen(true);
           }}
-          className="w-full py-2 px-3 bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 hover:text-blue-300 border border-blue-500/30 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer shadow-xs"
+          className="flex-1 py-2 px-3 bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 hover:text-blue-300 border border-blue-500/30 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer shadow-xs"
         >
           <Plus className="w-3.5 h-3.5" />
-          Add Stamp on Page {activeDoc.currentPage}
+          Add Stamp
+        </button>
+
+        <button
+          onClick={toggleShowPageStamps}
+          className={`p-2 rounded-xl border transition-all cursor-pointer flex items-center justify-center ${
+            showPageStamps
+              ? 'bg-slate-800/80 hover:bg-slate-800 border-slate-700 text-slate-300 hover:text-white'
+              : 'bg-amber-500/20 border-amber-500/50 text-amber-300 hover:bg-amber-500/30'
+          }`}
+          title={showPageStamps ? 'Hide Stamps on PDF Pages' : 'Show Stamps on PDF Pages'}
+        >
+          {showPageStamps ? <Eye className="w-3.5 h-3.5 text-blue-400" /> : <EyeOff className="w-3.5 h-3.5 text-amber-400" />}
         </button>
       </div>
 

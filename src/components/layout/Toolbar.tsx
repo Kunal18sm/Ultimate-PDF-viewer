@@ -67,7 +67,7 @@ export const Toolbar: React.FC = () => {
   const isShapeActive = ['rect', 'circle', 'arrow', 'line'].includes(currentTool.tool);
 
   return (
-    <div className="bg-slate-900/90 border-b border-slate-800 px-3 py-1.5 flex flex-wrap items-center justify-between gap-2 z-30 select-none backdrop-blur-md">
+    <div className="bg-slate-900/90 border-b border-slate-800 px-3 py-1.5 flex items-center justify-between gap-2 z-30 select-none backdrop-blur-md overflow-x-auto no-scrollbar">
       {/* 1. Primary Tool Selection Bar */}
       <div className="flex items-center gap-1 bg-slate-800/60 p-1 rounded-xl border border-slate-700/50">
         {/* Select Text */}

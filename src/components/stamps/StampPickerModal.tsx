@@ -42,10 +42,10 @@ export const StampPickerModal: React.FC = () => {
   const { isStampPickerOpen, setIsStampPickerOpen, addStamp, activeDoc } = usePDF();
   
   const [selectedPreset, setSelectedPreset] = useState<StampPreset>('APPROVED');
-  const [customLabel, setCustomLabel] = useState('');
-  const [customNote, setCustomNote] = useState('');
+  const [customLabel, setCustomLabel] = useState('APPROVED');
+  const [customNote, setCustomNote] = useState('Verified by Reviewer');
   const [customColor, setCustomColor] = useState('#10b981');
-  const [isCustomMode, setIsCustomMode] = useState(false);
+  const [isCustomMode, setIsCustomMode] = useState(true); // Custom Stamp is default as requested!
   const [stampPosition, setStampPosition] = useState<'top-right' | 'top-left' | 'center' | 'bottom-right'>('top-right');
 
   if (!isStampPickerOpen || !activeDoc) return null;
@@ -105,7 +105,7 @@ export const StampPickerModal: React.FC = () => {
           </div>
           <button 
             onClick={() => setIsStampPickerOpen(false)}
-            className="p-1.5 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white transition-colors"
+            className="p-1.5 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
@@ -116,24 +116,61 @@ export const StampPickerModal: React.FC = () => {
           {/* Mode Switcher */}
           <div className="flex p-1 bg-slate-800/80 rounded-xl border border-slate-700/50">
             <button
+              onClick={() => setIsCustomMode(true)}
+              className={`flex-1 py-1.5 text-xs font-medium rounded-lg transition-all cursor-pointer ${
+                isCustomMode ? 'bg-blue-600 text-white shadow-xs' : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              Custom Stamp (Default)
+            </button>
+            <button
               onClick={() => setIsCustomMode(false)}
-              className={`flex-1 py-1.5 text-xs font-medium rounded-lg transition-all ${
+              className={`flex-1 py-1.5 text-xs font-medium rounded-lg transition-all cursor-pointer ${
                 !isCustomMode ? 'bg-blue-600 text-white shadow-xs' : 'text-slate-400 hover:text-slate-200'
               }`}
             >
               Preset Stamps
             </button>
-            <button
-              onClick={() => setIsCustomMode(true)}
-              className={`flex-1 py-1.5 text-xs font-medium rounded-lg transition-all ${
-                isCustomMode ? 'bg-blue-600 text-white shadow-xs' : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              Custom Stamp
-            </button>
           </div>
 
-          {!isCustomMode ? (
+          {isCustomMode ? (
+            /* Custom Stamp Inputs (Default) */
+            <div className="space-y-3.5 bg-slate-800/30 p-4 rounded-xl border border-slate-800">
+              <div>
+                <label className="text-xs font-medium text-slate-300 block mb-1">Stamp Title</label>
+                <input
+                  type="text"
+                  placeholder="e.g. APPROVED, CONFIDENTIAL, REVIEWED BY..."
+                  value={customLabel}
+                  onChange={(e) => setCustomLabel(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:outline-hidden focus:border-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-medium text-slate-300 block mb-1">Stamp Color</label>
+                <div className="flex items-center gap-2 flex-wrap">
+                  {['#10b981', '#3b82f6', '#ef4444', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4', '#64748b'].map(c => (
+                    <button
+                      key={c}
+                      onClick={() => setCustomColor(c)}
+                      className={`w-7 h-7 rounded-full transition-transform cursor-pointer ${
+                        customColor === c ? 'scale-125 ring-2 ring-white ring-offset-2 ring-offset-slate-900' : 'hover:scale-110'
+                      }`}
+                      style={{ backgroundColor: c }}
+                    />
+                  ))}
+                  <input
+                    type="color"
+                    value={customColor}
+                    onChange={(e) => setCustomColor(e.target.value)}
+                    className="w-7 h-7 rounded-md cursor-pointer bg-transparent border-0"
+                    title="Custom Color"
+                  />
+                </div>
+              </div>
+            </div>
+          ) : (
             /* Presets Grid */
             <div>
               <label className="text-xs font-medium text-slate-300 block mb-2">Select Stamp Type</label>
@@ -148,7 +185,7 @@ export const StampPickerModal: React.FC = () => {
                         setSelectedPreset(preset.id);
                         setCustomNote('');
                       }}
-                      className={`p-3 rounded-xl border text-left flex flex-col gap-1.5 transition-all relative overflow-hidden ${
+                      className={`p-3 rounded-xl border text-left flex flex-col gap-1.5 transition-all relative overflow-hidden cursor-pointer ${
                         isSelected 
                           ? 'border-blue-500 bg-blue-500/10 ring-1 ring-blue-500/40' 
                           : 'border-slate-800 bg-slate-800/40 hover:bg-slate-800/90 hover:border-slate-700'
@@ -172,42 +209,6 @@ export const StampPickerModal: React.FC = () => {
                 })}
               </div>
             </div>
-          ) : (
-            /* Custom Stamp Inputs */
-            <div className="space-y-3.5 bg-slate-800/30 p-4 rounded-xl border border-slate-800">
-              <div>
-                <label className="text-xs font-medium text-slate-300 block mb-1">Stamp Title</label>
-                <input
-                  type="text"
-                  placeholder="e.g. AUDITED BY JOHN, ARCHIVED"
-                  value={customLabel}
-                  onChange={(e) => setCustomLabel(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:outline-hidden focus:border-blue-500"
-                />
-              </div>
-
-              <div>
-                <label className="text-xs font-medium text-slate-300 block mb-1">Stamp Color</label>
-                <div className="flex items-center gap-2">
-                  {['#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6', '#ec4899', '#06b6d4', '#64748b'].map(c => (
-                    <button
-                      key={c}
-                      onClick={() => setCustomColor(c)}
-                      className={`w-7 h-7 rounded-full transition-transform ${
-                        customColor === c ? 'scale-125 ring-2 ring-white ring-offset-2 ring-offset-slate-900' : 'hover:scale-110'
-                      }`}
-                      style={{ backgroundColor: c }}
-                    />
-                  ))}
-                  <input
-                    type="color"
-                    value={customColor}
-                    onChange={(e) => setCustomColor(e.target.value)}
-                    className="w-7 h-7 rounded-md cursor-pointer bg-transparent border-0"
-                  />
-                </div>
-              </div>
-            </div>
           )}
 
           {/* Optional Note / Subtext */}
@@ -217,7 +218,7 @@ export const StampPickerModal: React.FC = () => {
             </label>
             <input
               type="text"
-              placeholder={isCustomMode ? "e.g. Signed on 2026-09-23" : currentPreset?.defaultNote}
+              placeholder={isCustomMode ? "e.g. Verified on 2026-09-23" : currentPreset?.defaultNote}
               value={customNote}
               onChange={(e) => setCustomNote(e.target.value)}
               className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:outline-hidden focus:border-blue-500"
@@ -237,7 +238,7 @@ export const StampPickerModal: React.FC = () => {
                 <button
                   key={pos.id}
                   onClick={() => setStampPosition(pos.id as any)}
-                  className={`py-1.5 px-2 rounded-lg border text-center transition-all ${
+                  className={`py-1.5 px-2 rounded-lg border text-center transition-all cursor-pointer ${
                     stampPosition === pos.id
                       ? 'bg-blue-600/20 border-blue-500 text-blue-300 font-medium'
                       : 'bg-slate-800/40 border-slate-800 text-slate-400 hover:bg-slate-800 hover:text-slate-200'
@@ -264,7 +265,7 @@ export const StampPickerModal: React.FC = () => {
                 {isCustomMode ? (customLabel || 'CUSTOM STAMP') : currentPreset?.label}
               </span>
               <span className="text-[10px] opacity-80 font-medium">
-                {customNote || (isCustomMode ? 'Note text' : currentPreset?.defaultNote)}
+                {customNote || (isCustomMode ? 'Verified by Reviewer' : currentPreset?.defaultNote)}
               </span>
             </div>
           </div>
@@ -274,13 +275,13 @@ export const StampPickerModal: React.FC = () => {
         <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-slate-800 bg-slate-900/90">
           <button
             onClick={() => setIsStampPickerOpen(false)}
-            className="px-4 py-2 rounded-xl text-xs font-medium text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+            className="px-4 py-2 rounded-xl text-xs font-medium text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
           >
             Cancel
           </button>
           <button
             onClick={handleApplyStamp}
-            className="px-5 py-2 rounded-xl text-xs font-semibold text-white bg-blue-600 hover:bg-blue-500 transition-colors shadow-lg shadow-blue-600/30 flex items-center gap-2"
+            className="px-5 py-2 rounded-xl text-xs font-semibold text-white bg-blue-600 hover:bg-blue-500 transition-colors shadow-lg shadow-blue-600/30 flex items-center gap-2 cursor-pointer"
           >
             <Plus className="w-4 h-4" />
             Apply Stamp to Page {activeDoc.currentPage}

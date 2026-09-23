@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import { usePDF } from '../../context/PDFContext';
 import { StampSidebarList } from '../stamps/StampSidebarList';
 import { pdfjsLib } from '../../utils/pdfWorker';
@@ -10,8 +10,12 @@ import {
   ChevronLeft, 
   ChevronRight, 
   Trash2,
-  FileText
+  FileText,
+  Loader2
 } from 'lucide-react';
+
+// Global in-memory cache for rendered thumbnail images per doc and page
+const thumbnailDataUrlCache = new Map<string, string>();
 
 export const Sidebar: React.FC = () => {
   const {
@@ -70,13 +74,13 @@ export const Sidebar: React.FC = () => {
   if (!activeDoc) return null;
 
   return (
-    <aside className="w-72 bg-slate-900/95 border-r border-slate-800 flex flex-col h-full z-30 shrink-0 select-none backdrop-blur-md">
+    <aside className="w-72 sm:w-80 bg-slate-900/95 border-r border-slate-800 flex flex-col h-full z-30 shrink-0 select-none backdrop-blur-md transition-all">
       {/* Sidebar Header & Tabs */}
-      <div className="p-3 border-b border-slate-800 flex items-center justify-between">
-        <div className="flex items-center gap-1 bg-slate-800/80 p-1 rounded-xl border border-slate-700/50">
+      <div className="p-2.5 sm:p-3 border-b border-slate-800 flex items-center justify-between gap-1">
+        <div className="flex items-center gap-1 bg-slate-800/80 p-1 rounded-xl border border-slate-700/50 flex-1 overflow-x-auto no-scrollbar">
           <button
             onClick={() => setActiveSidebarTab('thumbnails')}
-            className={`p-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer flex items-center gap-1.5 ${
+            className={`px-2 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${
               activeSidebarTab === 'thumbnails'
                 ? 'bg-blue-600 text-white shadow-xs'
                 : 'text-slate-400 hover:text-slate-200'
@@ -89,7 +93,7 @@ export const Sidebar: React.FC = () => {
 
           <button
             onClick={() => setActiveSidebarTab('stamps')}
-            className={`p-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer flex items-center gap-1.5 ${
+            className={`px-2 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${
               activeSidebarTab === 'stamps'
                 ? 'bg-blue-600 text-white shadow-xs'
                 : 'text-slate-400 hover:text-slate-200'
@@ -102,7 +106,7 @@ export const Sidebar: React.FC = () => {
 
           <button
             onClick={() => setActiveSidebarTab('outline')}
-            className={`p-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer flex items-center gap-1.5 ${
+            className={`p-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${
               activeSidebarTab === 'outline'
                 ? 'bg-blue-600 text-white shadow-xs'
                 : 'text-slate-400 hover:text-slate-200'
@@ -114,7 +118,7 @@ export const Sidebar: React.FC = () => {
 
           <button
             onClick={() => setActiveSidebarTab('annotations')}
-            className={`p-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer flex items-center gap-1.5 ${
+            className={`p-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${
               activeSidebarTab === 'annotations'
                 ? 'bg-blue-600 text-white shadow-xs'
                 : 'text-slate-400 hover:text-slate-200'
@@ -127,14 +131,14 @@ export const Sidebar: React.FC = () => {
 
         <button
           onClick={() => setIsSidebarOpen(false)}
-          className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
+          className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer shrink-0"
           title="Collapse Sidebar"
         >
           <ChevronLeft className="w-4 h-4" />
         </button>
       </div>
 
-      {/* Tab Content (Keyed by activeDoc.id to guarantee 100% accurate per-doc content) */}
+      {/* Tab Content (Scoped by activeDoc.id) */}
       <div className="flex-1 overflow-y-auto">
         {activeSidebarTab === 'thumbnails' && (
           <ThumbnailsGrid
@@ -171,14 +175,14 @@ export const Sidebar: React.FC = () => {
 
       {/* Sidebar Footer Metadata */}
       <div className="p-3 border-t border-slate-800 bg-slate-900/60 text-[11px] text-slate-400 flex items-center justify-between">
-        <span className="truncate max-w-[150px]" title={activeDoc.name}>{activeDoc.name}</span>
+        <span className="truncate max-w-[160px]" title={activeDoc.name}>{activeDoc.name}</span>
         <span className="font-mono">{activeDoc.currentPage} / {activeDoc.numPages}</span>
       </div>
     </aside>
   );
 };
 
-// Lazy-Loaded Thumbnail Item with IntersectionObserver scoped to specific document
+// Thumbnail Item with Animated Skeleton Loading & DataURL Caching
 const ThumbnailItem: React.FC<{
   docId: string;
   pdfDoc: any;
@@ -186,75 +190,89 @@ const ThumbnailItem: React.FC<{
   isSelected: boolean;
   onClick: () => void;
 }> = ({ docId, pdfDoc, pageNum, isSelected, onClick }) => {
-  const containerRef = useRef<HTMLDivElement | null>(null);
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const [isVisible, setIsVisible] = useState(false);
-  const renderedDocIdRef = useRef<string | null>(null);
-
-  useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting) {
-          setIsVisible(true);
-          observer.disconnect();
-        }
-      },
-      { rootMargin: '120px' }
-    );
-
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [docId]);
+  const cacheKey = `${docId}_p${pageNum}`;
+  const [imgSrc, setImgSrc] = useState<string | null>(() => thumbnailDataUrlCache.get(cacheKey) || null);
+  const [isLoading, setIsLoading] = useState(!thumbnailDataUrlCache.has(cacheKey));
 
   useEffect(() => {
     let isCancelled = false;
-    if (!pdfDoc || !isVisible || renderedDocIdRef.current === `${docId}_${pageNum}`) return;
+
+    // Check cache first
+    const cached = thumbnailDataUrlCache.get(cacheKey);
+    if (cached) {
+      setImgSrc(cached);
+      setIsLoading(false);
+      return;
+    }
+
+    if (!pdfDoc) {
+      setIsLoading(true);
+      return;
+    }
+
+    setIsLoading(true);
 
     pdfDoc.getPage(pageNum).then((page: any) => {
       if (isCancelled) return;
-      const viewport = page.getViewport({ scale: 0.25 });
-      const canvas = canvasRef.current;
-      if (!canvas) return;
-
-      canvas.width = viewport.width;
-      canvas.height = viewport.height;
-      const ctx = canvas.getContext('2d');
+      const viewport = page.getViewport({ scale: 0.3 });
+      const offscreenCanvas = document.createElement('canvas');
+      offscreenCanvas.width = Math.floor(viewport.width);
+      offscreenCanvas.height = Math.floor(viewport.height);
+      const ctx = offscreenCanvas.getContext('2d', { alpha: false });
       if (!ctx) return;
 
       page.render({ canvasContext: ctx, viewport }).promise.then(() => {
         if (!isCancelled) {
-          renderedDocIdRef.current = `${docId}_${pageNum}`;
+          const dataUrl = offscreenCanvas.toDataURL('image/jpeg', 0.85);
+          thumbnailDataUrlCache.set(cacheKey, dataUrl);
+          setImgSrc(dataUrl);
+          setIsLoading(false);
         }
-      }).catch(() => {});
-    }).catch(() => {});
+      }).catch((err: any) => {
+        console.warn(`Page ${pageNum} thumbnail error`, err);
+        if (!isCancelled) setIsLoading(false);
+      });
+    }).catch((err: any) => {
+      console.warn(`Page ${pageNum} getPage error`, err);
+      if (!isCancelled) setIsLoading(false);
+    });
 
     return () => {
       isCancelled = true;
     };
-  }, [docId, pdfDoc, pageNum, isVisible]);
+  }, [docId, pdfDoc, pageNum, cacheKey]);
 
   return (
     <div
-      ref={containerRef}
       onClick={onClick}
       className={`group p-2 rounded-xl border flex flex-col items-center gap-1.5 transition-all cursor-pointer ${
         isSelected
-          ? 'bg-blue-600/10 border-blue-500 ring-2 ring-blue-500/30'
+          ? 'bg-blue-600/15 border-blue-500 ring-2 ring-blue-500/40 shadow-md'
           : 'bg-slate-800/40 border-slate-800 hover:bg-slate-800 hover:border-slate-700'
       }`}
     >
-      <div className="w-full aspect-[3/4] bg-white rounded-md overflow-hidden flex items-center justify-center shadow-xs relative">
-        <canvas ref={canvasRef} className="w-full h-full object-contain" />
-        {!isVisible && (
-          <div className="absolute inset-0 bg-slate-800/20 flex items-center justify-center">
-            <span className="text-[10px] text-slate-400 font-mono">{pageNum}</span>
+      <div className="w-full aspect-[3/4] bg-slate-950 rounded-md overflow-hidden flex items-center justify-center shadow-xs relative">
+        {imgSrc ? (
+          <img
+            src={imgSrc}
+            alt={`Page ${pageNum}`}
+            className="w-full h-full object-contain select-none animate-in fade-in duration-150"
+            loading="lazy"
+          />
+        ) : null}
+
+        {/* Animated Skeleton Loading State */}
+        {isLoading && (
+          <div className="absolute inset-0 bg-slate-800/80 animate-pulse flex flex-col items-center justify-center gap-1.5">
+            <Loader2 className="w-4 h-4 text-blue-400 animate-spin" />
+            <span className="text-[10px] text-slate-400 font-mono font-medium">Page {pageNum}</span>
           </div>
         )}
       </div>
-      <span className="text-[11px] font-medium text-slate-400 group-hover:text-slate-200">
+
+      <span className={`text-[11px] font-medium transition-colors ${
+        isSelected ? 'text-blue-300 font-semibold' : 'text-slate-400 group-hover:text-slate-200'
+      }`}>
         Page {pageNum}
       </span>
     </div>

@@ -125,7 +125,7 @@ const PDFStudioApp: React.FC = () => {
       <Toolbar />
 
       {/* Center Studio Area (Sidebar + PDF Viewport) */}
-      <div className="flex-1 flex overflow-hidden relative">
+      <div className="flex-1 flex overflow-hidden relative z-10">
         <Sidebar />
         <PDFViewer />
       </div>

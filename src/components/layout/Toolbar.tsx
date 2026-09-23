@@ -72,7 +72,7 @@ export const Toolbar: React.FC = () => {
   const isShapeActive = ['rect', 'circle', 'arrow', 'line'].includes(currentTool.tool);
 
   return (
-    <div className="bg-slate-900/90 border-b border-slate-800 px-3 py-1.5 flex items-center justify-between gap-2 z-30 select-none backdrop-blur-md overflow-x-auto no-scrollbar">
+    <div className="relative z-40 bg-slate-900/90 border-b border-slate-800 px-3 py-1.5 flex items-center justify-between gap-2 select-none backdrop-blur-md overflow-visible">
       {/* 1. Primary Tool Selection Bar */}
       <div className="flex items-center gap-1 bg-slate-800/60 p-1 rounded-xl border border-slate-700/50">
         {/* Select Text */}
@@ -152,40 +152,47 @@ export const Toolbar: React.FC = () => {
 
           {/* Dropdown Menu */}
           {isShapeDropdownOpen && (
-            <div className="absolute top-full left-0 mt-1.5 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl p-1.5 flex flex-col gap-1 z-50 min-w-[130px]">
-              <button
-                onClick={() => { setTool('rect'); setIsShapeDropdownOpen(false); }}
-                className={`p-1.5 rounded-lg text-xs font-medium flex items-center gap-2 cursor-pointer ${
-                  currentTool.tool === 'rect' ? 'bg-blue-600 text-white' : 'text-slate-300 hover:bg-slate-800'
-                }`}
-              >
-                <Square className="w-4 h-4" /> Rectangle
-              </button>
-              <button
-                onClick={() => { setTool('circle'); setIsShapeDropdownOpen(false); }}
-                className={`p-1.5 rounded-lg text-xs font-medium flex items-center gap-2 cursor-pointer ${
-                  currentTool.tool === 'circle' ? 'bg-blue-600 text-white' : 'text-slate-300 hover:bg-slate-800'
-                }`}
-              >
-                <Circle className="w-4 h-4" /> Circle
-              </button>
-              <button
-                onClick={() => { setTool('arrow'); setIsShapeDropdownOpen(false); }}
-                className={`p-1.5 rounded-lg text-xs font-medium flex items-center gap-2 cursor-pointer ${
-                  currentTool.tool === 'arrow' ? 'bg-blue-600 text-white' : 'text-slate-300 hover:bg-slate-800'
-                }`}
-              >
-                <MoveRight className="w-4 h-4" /> Arrow
-              </button>
-              <button
-                onClick={() => { setTool('line'); setIsShapeDropdownOpen(false); }}
-                className={`p-1.5 rounded-lg text-xs font-medium flex items-center gap-2 cursor-pointer ${
-                  currentTool.tool === 'line' ? 'bg-blue-600 text-white' : 'text-slate-300 hover:bg-slate-800'
-                }`}
-              >
-                <Minus className="w-4 h-4" /> Line
-              </button>
-            </div>
+            <>
+              {/* Click outside dismiss backdrop */}
+              <div 
+                className="fixed inset-0 z-40" 
+                onClick={() => setIsShapeDropdownOpen(false)} 
+              />
+              <div className="absolute top-full left-0 mt-2 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl p-1.5 flex flex-col gap-1 z-50 min-w-[140px] animate-in fade-in zoom-in-95 duration-100 ring-1 ring-white/10">
+                <button
+                  onClick={() => { setTool('rect'); setIsShapeDropdownOpen(false); }}
+                  className={`p-1.5 rounded-lg text-xs font-medium flex items-center gap-2 cursor-pointer transition-colors ${
+                    currentTool.tool === 'rect' ? 'bg-blue-600 text-white' : 'text-slate-300 hover:bg-slate-800'
+                  }`}
+                >
+                  <Square className="w-4 h-4" /> Rectangle
+                </button>
+                <button
+                  onClick={() => { setTool('circle'); setIsShapeDropdownOpen(false); }}
+                  className={`p-1.5 rounded-lg text-xs font-medium flex items-center gap-2 cursor-pointer transition-colors ${
+                    currentTool.tool === 'circle' ? 'bg-blue-600 text-white' : 'text-slate-300 hover:bg-slate-800'
+                  }`}
+                >
+                  <Circle className="w-4 h-4" /> Circle
+                </button>
+                <button
+                  onClick={() => { setTool('arrow'); setIsShapeDropdownOpen(false); }}
+                  className={`p-1.5 rounded-lg text-xs font-medium flex items-center gap-2 cursor-pointer transition-colors ${
+                    currentTool.tool === 'arrow' ? 'bg-blue-600 text-white' : 'text-slate-300 hover:bg-slate-800'
+                  }`}
+                >
+                  <MoveRight className="w-4 h-4" /> Arrow
+                </button>
+                <button
+                  onClick={() => { setTool('line'); setIsShapeDropdownOpen(false); }}
+                  className={`p-1.5 rounded-lg text-xs font-medium flex items-center gap-2 cursor-pointer transition-colors ${
+                    currentTool.tool === 'line' ? 'bg-blue-600 text-white' : 'text-slate-300 hover:bg-slate-800'
+                  }`}
+                >
+                  <Minus className="w-4 h-4" /> Line
+                </button>
+              </div>
+            </>
           )}
         </div>
 

@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { usePDF } from '../../context/PDFContext';
 import { StampSidebarList } from '../stamps/StampSidebarList';
-import { pdfjsLib } from '../../utils/pdfWorker';
+import { getOrLoadPdfDocument } from '../../utils/pdfDocumentManager';
 import { 
   LayoutGrid, 
   Tag, 
@@ -14,8 +14,33 @@ import {
   Loader2
 } from 'lucide-react';
 
-// Global in-memory cache for rendered thumbnail images per doc and page
+// Global thumbnail cache: Map<`${docId}_p${pageNum}`, dataUrl>
 const thumbnailDataUrlCache = new Map<string, string>();
+
+// Concurrency queue to prevent worker congestion on 400+ page books
+let activeRenderCount = 0;
+const MAX_CONCURRENT_THUMBNAILS = 2;
+const thumbnailQueue: Array<() => void> = [];
+
+function enqueueThumbnailRender(fn: () => void) {
+  if (activeRenderCount < MAX_CONCURRENT_THUMBNAILS) {
+    activeRenderCount++;
+    fn();
+  } else {
+    thumbnailQueue.push(fn);
+  }
+}
+
+function finishThumbnailRender() {
+  activeRenderCount = Math.max(0, activeRenderCount - 1);
+  if (thumbnailQueue.length > 0) {
+    const next = thumbnailQueue.shift();
+    if (next) {
+      activeRenderCount++;
+      next();
+    }
+  }
+}
 
 export const Sidebar: React.FC = () => {
   const {
@@ -31,25 +56,36 @@ export const Sidebar: React.FC = () => {
   } = usePDF();
 
   const [pdfDoc, setPdfDoc] = useState<any>(null);
+  const [currentLoadedDocId, setCurrentLoadedDocId] = useState<string | null>(null);
 
-  // Load PDF.js document when activeDoc changes
+  // Load PDF.js document using singleton cache
   useEffect(() => {
     let isCancelled = false;
 
     if (!activeDoc?.arrayBuffer) {
       setPdfDoc(null);
+      setCurrentLoadedDocId(null);
       return;
     }
 
-    pdfjsLib.getDocument({ data: new Uint8Array(activeDoc.arrayBuffer.slice(0)) }).promise
+    // Immediately clear previous doc reference if different
+    if (currentLoadedDocId !== activeDoc.id) {
+      setPdfDoc(null);
+    }
+
+    getOrLoadPdfDocument(activeDoc.id, activeDoc.arrayBuffer)
       .then((doc) => {
         if (!isCancelled) {
           setPdfDoc(doc);
+          setCurrentLoadedDocId(activeDoc.id);
         }
       })
       .catch(err => {
         console.error('Sidebar PDF load error:', err);
-        if (!isCancelled) setPdfDoc(null);
+        if (!isCancelled) {
+          setPdfDoc(null);
+          setCurrentLoadedDocId(null);
+        }
       });
 
     return () => {
@@ -80,7 +116,7 @@ export const Sidebar: React.FC = () => {
         <div className="flex items-center gap-1 bg-slate-800/80 p-1 rounded-xl border border-slate-700/50 flex-1 overflow-x-auto no-scrollbar">
           <button
             onClick={() => setActiveSidebarTab('thumbnails')}
-            className={`px-2 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${
+            className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${
               activeSidebarTab === 'thumbnails'
                 ? 'bg-blue-600 text-white shadow-xs'
                 : 'text-slate-400 hover:text-slate-200'
@@ -88,12 +124,12 @@ export const Sidebar: React.FC = () => {
             title="Page Thumbnails"
           >
             <LayoutGrid className="w-3.5 h-3.5" />
-            <span className="text-[11px]">Pages</span>
+            <span className="text-[11px]">Pages ({activeDoc.numPages})</span>
           </button>
 
           <button
             onClick={() => setActiveSidebarTab('stamps')}
-            className={`px-2 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${
+            className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${
               activeSidebarTab === 'stamps'
                 ? 'bg-blue-600 text-white shadow-xs'
                 : 'text-slate-400 hover:text-slate-200'
@@ -138,13 +174,13 @@ export const Sidebar: React.FC = () => {
         </button>
       </div>
 
-      {/* Tab Content (Scoped by activeDoc.id) */}
+      {/* Tab Content (Strictly scoped to activeDoc.id) */}
       <div className="flex-1 overflow-y-auto">
         {activeSidebarTab === 'thumbnails' && (
           <ThumbnailsGrid
             key={`thumbs-grid-${activeDoc.id}`}
             docId={activeDoc.id}
-            pdfDoc={pdfDoc}
+            pdfDoc={currentLoadedDocId === activeDoc.id ? pdfDoc : null}
             numPages={activeDoc.numPages}
             currentPage={activeDoc.currentPage}
             onPageSelect={setCurrentPage}
@@ -182,7 +218,7 @@ export const Sidebar: React.FC = () => {
   );
 };
 
-// Thumbnail Item with Animated Skeleton Loading & DataURL Caching
+// Lazy-Loaded Thumbnail Item with Animated Skeleton Loading & DataURL Caching
 const ThumbnailItem: React.FC<{
   docId: string;
   pdfDoc: any;
@@ -191,13 +227,34 @@ const ThumbnailItem: React.FC<{
   onClick: () => void;
 }> = ({ docId, pdfDoc, pageNum, isSelected, onClick }) => {
   const cacheKey = `${docId}_p${pageNum}`;
+  const containerRef = useRef<HTMLDivElement | null>(null);
   const [imgSrc, setImgSrc] = useState<string | null>(() => thumbnailDataUrlCache.get(cacheKey) || null);
+  const [isVisible, setIsVisible] = useState(false);
   const [isLoading, setIsLoading] = useState(!thumbnailDataUrlCache.has(cacheKey));
 
+  // IntersectionObserver to only load visible thumbnails
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          setIsVisible(true);
+        }
+      },
+      { rootMargin: '200px 0px 200px 0px' }
+    );
+
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [docId]);
+
+  // Render thumbnail image when visible
   useEffect(() => {
     let isCancelled = false;
 
-    // Check cache first
+    // 1. Check cache first
     const cached = thumbnailDataUrlCache.get(cacheKey);
     if (cached) {
       setImgSrc(cached);
@@ -205,45 +262,66 @@ const ThumbnailItem: React.FC<{
       return;
     }
 
-    if (!pdfDoc) {
+    if (!pdfDoc || !isVisible) {
       setIsLoading(true);
       return;
     }
 
     setIsLoading(true);
 
-    pdfDoc.getPage(pageNum).then((page: any) => {
-      if (isCancelled) return;
-      const viewport = page.getViewport({ scale: 0.3 });
-      const offscreenCanvas = document.createElement('canvas');
-      offscreenCanvas.width = Math.floor(viewport.width);
-      offscreenCanvas.height = Math.floor(viewport.height);
-      const ctx = offscreenCanvas.getContext('2d', { alpha: false });
-      if (!ctx) return;
+    enqueueThumbnailRender(() => {
+      if (isCancelled) {
+        finishThumbnailRender();
+        return;
+      }
 
-      page.render({ canvasContext: ctx, viewport }).promise.then(() => {
-        if (!isCancelled) {
-          const dataUrl = offscreenCanvas.toDataURL('image/jpeg', 0.85);
-          thumbnailDataUrlCache.set(cacheKey, dataUrl);
-          setImgSrc(dataUrl);
-          setIsLoading(false);
-        }
-      }).catch((err: any) => {
-        console.warn(`Page ${pageNum} thumbnail error`, err);
-        if (!isCancelled) setIsLoading(false);
-      });
-    }).catch((err: any) => {
-      console.warn(`Page ${pageNum} getPage error`, err);
-      if (!isCancelled) setIsLoading(false);
+      pdfDoc.getPage(pageNum)
+        .then((page: any) => {
+          if (isCancelled) {
+            finishThumbnailRender();
+            return;
+          }
+
+          const viewport = page.getViewport({ scale: 0.25 });
+          const offscreenCanvas = document.createElement('canvas');
+          offscreenCanvas.width = Math.floor(viewport.width);
+          offscreenCanvas.height = Math.floor(viewport.height);
+          const ctx = offscreenCanvas.getContext('2d', { alpha: false });
+
+          if (!ctx) {
+            finishThumbnailRender();
+            return;
+          }
+
+          page.render({ canvasContext: ctx, viewport }).promise
+            .then(() => {
+              if (!isCancelled) {
+                const dataUrl = offscreenCanvas.toDataURL('image/jpeg', 0.8);
+                thumbnailDataUrlCache.set(cacheKey, dataUrl);
+                setImgSrc(dataUrl);
+                setIsLoading(false);
+              }
+              finishThumbnailRender();
+            })
+            .catch(() => {
+              if (!isCancelled) setIsLoading(false);
+              finishThumbnailRender();
+            });
+        })
+        .catch(() => {
+          if (!isCancelled) setIsLoading(false);
+          finishThumbnailRender();
+        });
     });
 
     return () => {
       isCancelled = true;
     };
-  }, [docId, pdfDoc, pageNum, cacheKey]);
+  }, [docId, pdfDoc, pageNum, cacheKey, isVisible]);
 
   return (
     <div
+      ref={containerRef}
       onClick={onClick}
       className={`group p-2 rounded-xl border flex flex-col items-center gap-1.5 transition-all cursor-pointer ${
         isSelected

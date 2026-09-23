@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { usePDF } from '../../context/PDFContext';
-import { pdfjsLib } from '../../utils/pdfWorker';
+import { getOrLoadPdfDocument } from '../../utils/pdfDocumentManager';
 import { PageRenderer } from './PageRenderer';
 import { 
   Layers, 
@@ -21,7 +21,7 @@ export const PDFViewer: React.FC = () => {
   const [isDragOver, setIsDragOver] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
 
-  // Load PDF.js doc instance when arrayBuffer changes
+  // Load PDF.js doc instance via singleton cache to avoid duplicate parsing
   useEffect(() => {
     let isCancelled = false;
 
@@ -31,9 +31,7 @@ export const PDFViewer: React.FC = () => {
     }
 
     setIsLoadingPdf(true);
-    const loadingTask = pdfjsLib.getDocument({ data: new Uint8Array(activeDoc.arrayBuffer.slice(0)) });
-
-    loadingTask.promise
+    getOrLoadPdfDocument(activeDoc.id, activeDoc.arrayBuffer)
       .then((loadedDoc: any) => {
         if (!isCancelled) {
           setPdfDoc(loadedDoc);

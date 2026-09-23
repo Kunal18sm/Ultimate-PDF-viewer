@@ -164,6 +164,7 @@ export const StampPickerModal: React.FC = () => {
 
   // Keyboard navigation between color buttons using Arrow keys and Enter to save
   const handleColorKeyDown = (index: number, e: React.KeyboardEvent) => {
+    e.stopPropagation();
     if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
       e.preventDefault();
       const nextIdx = (index + 1) % STAMP_COLORS.length;
@@ -180,11 +181,9 @@ export const StampPickerModal: React.FC = () => {
       labelInputRef.current?.focus();
     } else if (e.key === 'Enter') {
       e.preventDefault();
-      e.stopPropagation();
       handleApplyStamp();
     } else if (e.key === 'Escape') {
       e.preventDefault();
-      e.stopPropagation();
       handleClose();
     }
   };

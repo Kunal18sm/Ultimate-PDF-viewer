@@ -16,6 +16,9 @@ const PDFStudioApp: React.FC = () => {
     setCurrentPage,
     undo,
     redo,
+    isStampPickerOpen,
+    isFiltersModalOpen,
+    isShortcutsOpen,
     setIsStampPickerOpen,
     setIsFiltersModalOpen,
     setIsShortcutsOpen,
@@ -24,9 +27,20 @@ const PDFStudioApp: React.FC = () => {
   // Global Keyboard Shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Don't trigger if typing in an input or textarea
+      // Don't trigger if any modal is open
+      if (isStampPickerOpen || isFiltersModalOpen || isShortcutsOpen) {
+        return;
+      }
+
+      // Don't trigger if typing in an input, textarea, or button
       const target = e.target as HTMLElement;
-      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') {
+      if (
+        target.tagName === 'INPUT' || 
+        target.tagName === 'TEXTAREA' || 
+        target.tagName === 'BUTTON' || 
+        target.isContentEditable ||
+        target.closest('[role="dialog"]')
+      ) {
         return;
       }
 
@@ -98,7 +112,7 @@ const PDFStudioApp: React.FC = () => {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [activeDoc, setTool, setZoom, setCurrentPage, undo, redo, setIsStampPickerOpen, setIsFiltersModalOpen, setIsShortcutsOpen]);
+  }, [activeDoc, setTool, setZoom, setCurrentPage, undo, redo, isStampPickerOpen, isFiltersModalOpen, isShortcutsOpen, setIsStampPickerOpen, setIsFiltersModalOpen, setIsShortcutsOpen]);
 
   return (
     <div className="h-screen w-screen flex flex-col bg-slate-950 text-slate-100 overflow-hidden font-sans">

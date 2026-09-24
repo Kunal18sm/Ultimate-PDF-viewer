@@ -12,7 +12,11 @@ export const StampSidebarList: React.FC = () => {
     setEditingStamp,
     showPageStamps,
     toggleShowPageStamps,
-    requestProtectedDelete
+    requestProtectedDelete,
+    dualActivePane,
+    setDualActivePane,
+    setDualLeftPage,
+    setDualRightPage,
   } = usePDF();
 
   if (!activeDoc) {
@@ -24,6 +28,9 @@ export const StampSidebarList: React.FC = () => {
   }
 
   const stamps = activeDoc.stamps || [];
+  const isDual = activeDoc.viewMode === 'dual';
+  const leftPage = activeDoc.dualLeftPage ?? activeDoc.currentPage ?? 1;
+  const rightPage = activeDoc.dualRightPage ?? (leftPage < activeDoc.numPages ? leftPage + 1 : leftPage);
 
   return (
     <div className="flex flex-col h-full">
@@ -53,6 +60,40 @@ export const StampSidebarList: React.FC = () => {
         </button>
       </div>
 
+      {/* Dual Screen Target Banner */}
+      {isDual && (
+        <div className="px-3 py-2 bg-blue-950/40 border-b border-blue-900/50 flex flex-col gap-1.5 text-xs">
+          <div className="flex items-center justify-between text-[11px]">
+            <span className="text-slate-300 font-medium">Stamps target:</span>
+            <span className="text-[10px] text-blue-400 font-bold">
+              {dualActivePane === 'left' ? 'Screen 1 (Left)' : 'Screen 2 (Right)'}
+            </span>
+          </div>
+          <div className="flex items-center bg-slate-900 p-1 rounded-xl border border-slate-800 text-xs">
+            <button
+              onClick={() => setDualActivePane('left')}
+              className={`flex-1 py-1 rounded-lg font-medium transition-all cursor-pointer text-center text-[11px] ${
+                dualActivePane === 'left'
+                  ? 'bg-blue-600 text-white shadow-xs font-bold'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              Screen 1 (p.{leftPage})
+            </button>
+            <button
+              onClick={() => setDualActivePane('right')}
+              className={`flex-1 py-1 rounded-lg font-medium transition-all cursor-pointer text-center text-[11px] ${
+                dualActivePane === 'right'
+                  ? 'bg-blue-600 text-white shadow-xs font-bold'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              Screen 2 (p.{rightPage})
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Stamps List */}
       <div className="flex-1 overflow-y-auto p-3 space-y-2.5">
         {stamps.length === 0 ? (
@@ -67,13 +108,16 @@ export const StampSidebarList: React.FC = () => {
           </div>
         ) : (
           stamps.map(stamp => {
-            const isCurrentPage = activeDoc.currentPage === stamp.pageNumber;
+            const isLeft = isDual && leftPage === stamp.pageNumber;
+            const isRight = isDual && rightPage === stamp.pageNumber;
+            const isCurrentPage = !isDual && activeDoc.currentPage === stamp.pageNumber;
+
             return (
               <div
                 key={stamp.id}
                 onClick={() => jumpToStamp(stamp)}
                 className={`group px-3 py-2.5 rounded-xl border transition-all cursor-pointer flex items-center justify-between ${
-                  isCurrentPage
+                  isLeft || isRight || isCurrentPage
                     ? 'bg-blue-600/15 border-blue-500 ring-1 ring-blue-500/40 shadow-xs'
                     : 'bg-slate-800/40 border-slate-800 hover:bg-slate-800/90 hover:border-slate-700'
                 }`}
@@ -84,20 +128,60 @@ export const StampSidebarList: React.FC = () => {
                     className="w-2.5 h-2.5 rounded-full shrink-0 shadow-xs"
                     style={{ backgroundColor: stamp.color }}
                   />
-                  <span 
-                    className="text-xs font-bold tracking-wider truncate"
-                    style={{ color: stamp.color }}
-                    title={stamp.label}
-                  >
-                    {stamp.label}
-                  </span>
+                  <div className="flex flex-col min-w-0">
+                    <span 
+                      className="text-xs font-bold tracking-wider truncate"
+                      style={{ color: stamp.color }}
+                      title={stamp.label}
+                    >
+                      {stamp.label}
+                    </span>
+                    {stamp.note && (
+                      <span className="text-[10px] text-slate-400 truncate max-w-[140px]">
+                        {stamp.note}
+                      </span>
+                    )}
+                  </div>
                 </div>
 
-                {/* Actions: Page Badge, Edit, Delete */}
+                {/* Actions: Page Badge, Dual Jump buttons, Edit, Delete */}
                 <div className="flex items-center gap-1.5 shrink-0">
-                  <span className="text-[10px] font-semibold bg-slate-900 border border-slate-700/60 px-2 py-0.5 rounded-md text-slate-400 group-hover:text-blue-300 group-hover:border-blue-500/40 transition-colors flex items-center gap-1">
-                    Page {stamp.pageNumber}
-                    <ArrowRight className="w-2.5 h-2.5 opacity-0 group-hover:opacity-100 transition-opacity" />
+                  {isDual && (
+                    <div className="opacity-0 group-hover:opacity-100 flex items-center gap-1 transition-opacity">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setDualLeftPage(stamp.pageNumber);
+                          setDualActivePane('left');
+                        }}
+                        className="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-blue-600 text-slate-300 hover:text-white text-[9px] font-mono font-bold border border-slate-700 cursor-pointer"
+                        title={`Open on Screen 1 (Left)`}
+                      >
+                        S1
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setDualRightPage(stamp.pageNumber);
+                          setDualActivePane('right');
+                        }}
+                        className="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-blue-600 text-slate-300 hover:text-white text-[9px] font-mono font-bold border border-slate-700 cursor-pointer"
+                        title={`Open on Screen 2 (Right)`}
+                      >
+                        S2
+                      </button>
+                    </div>
+                  )}
+
+                  <span className={`text-[10px] font-semibold border px-2 py-0.5 rounded-md transition-colors flex items-center gap-1 ${
+                    isLeft
+                      ? 'bg-blue-600 text-white border-blue-400'
+                      : isRight
+                      ? 'bg-indigo-600 text-white border-indigo-400'
+                      : 'bg-slate-900 border-slate-700/60 text-slate-400 group-hover:text-blue-300 group-hover:border-blue-500/40'
+                  }`}>
+                    {isLeft ? 'S1: p.' : isRight ? 'S2: p.' : 'p.'}{stamp.pageNumber}
+                    {!isDual && <ArrowRight className="w-2.5 h-2.5 opacity-0 group-hover:opacity-100 transition-opacity" />}
                   </span>
 
                   {/* Edit Stamp Button */}

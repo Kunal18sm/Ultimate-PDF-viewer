@@ -115,6 +115,8 @@ export interface PDFDocumentState {
   zoom: number; // 0.25 to 5.0 (default 1.0 = 100%)
   rotation: number; // 0, 90, 180, 270
   viewMode: ViewMode;
+  dualLeftPage?: number; // Custom Left Page in dual split mode
+  dualRightPage?: number; // Custom Right Page in dual split mode
   filters: VisualFilters;
   
   // Annotations & stamps per document

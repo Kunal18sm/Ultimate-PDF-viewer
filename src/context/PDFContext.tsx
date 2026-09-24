@@ -48,6 +48,13 @@ interface PDFContextType {
   setFilters: (filters: Partial<VisualFilters>) => void;
   resetFilters: () => void;
   
+  // Dual Screen / Split View controls
+  dualActivePane: 'left' | 'right';
+  setDualActivePane: (pane: 'left' | 'right') => void;
+  setDualLeftPage: (pageNumber: number) => void;
+  setDualRightPage: (pageNumber: number) => void;
+  swapDualPages: () => void;
+  
   // Tool controls
   setTool: (tool: ToolType) => void;
   setToolConfig: (config: Partial<CurrentToolConfig>) => void;
@@ -143,6 +150,7 @@ export const PDFProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [isShortcutsOpen, setIsShortcutsOpen] = useState(false);
   const [securityAction, setSecurityAction] = useState<SecurityProtectedAction | null>(null);
   const [laserPosition, setLaserPosition] = useState<{ x: number; y: number } | null>(null);
+  const [dualActivePane, setDualActivePane] = useState<'left' | 'right'>('left');
 
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
@@ -218,6 +226,8 @@ export const PDFProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         arrayBuffer: buffer,
         numPages,
         currentPage: 1,
+        dualLeftPage: 1,
+        dualRightPage: Math.min(2, numPages),
         zoom: 1.0,
         rotation: 0,
         viewMode: 'single',
@@ -273,11 +283,50 @@ export const PDFProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setCurrentToolState(prev => ({ ...prev, ...config }));
   }, []);
 
-  // View navigation
+  // View navigation with dual screen support
   const setCurrentPage = useCallback((pageNumber: number) => {
     updateActiveDoc(doc => {
       const target = Math.max(1, Math.min(doc.numPages, pageNumber));
-      return { ...doc, currentPage: target };
+      if (doc.viewMode === 'dual') {
+        if (dualActivePane === 'right') {
+          return { ...doc, dualRightPage: target };
+        } else {
+          return { ...doc, dualLeftPage: target, currentPage: target };
+        }
+      }
+      return { 
+        ...doc, 
+        currentPage: target,
+        dualLeftPage: target,
+        dualRightPage: doc.dualRightPage ?? Math.min(target + 1, doc.numPages)
+      };
+    });
+  }, [updateActiveDoc, dualActivePane]);
+
+  const setDualLeftPage = useCallback((pageNumber: number) => {
+    updateActiveDoc(doc => {
+      const target = Math.max(1, Math.min(doc.numPages, pageNumber));
+      return { ...doc, dualLeftPage: target, currentPage: target };
+    });
+  }, [updateActiveDoc]);
+
+  const setDualRightPage = useCallback((pageNumber: number) => {
+    updateActiveDoc(doc => {
+      const target = Math.max(1, Math.min(doc.numPages, pageNumber));
+      return { ...doc, dualRightPage: target };
+    });
+  }, [updateActiveDoc]);
+
+  const swapDualPages = useCallback(() => {
+    updateActiveDoc(doc => {
+      const left = doc.dualLeftPage ?? doc.currentPage ?? 1;
+      const right = doc.dualRightPage ?? (left < doc.numPages ? left + 1 : left);
+      return {
+        ...doc,
+        dualLeftPage: right,
+        dualRightPage: left,
+        currentPage: right
+      };
     });
   }, [updateActiveDoc]);
 
@@ -297,7 +346,16 @@ export const PDFProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [updateActiveDoc]);
 
   const setViewMode = useCallback((viewMode: ViewMode) => {
-    updateActiveDoc(doc => ({ ...doc, viewMode }));
+    updateActiveDoc(doc => {
+      const left = doc.dualLeftPage ?? doc.currentPage ?? 1;
+      const right = doc.dualRightPage ?? (left < doc.numPages ? left + 1 : left);
+      return { 
+        ...doc, 
+        viewMode,
+        dualLeftPage: left,
+        dualRightPage: right
+      };
+    });
   }, [updateActiveDoc]);
 
   const setFilters = useCallback((filtersUpdate: Partial<VisualFilters>) => {
@@ -641,6 +699,11 @@ export const PDFProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setViewMode,
         setFilters,
         resetFilters,
+        dualActivePane,
+        setDualActivePane,
+        setDualLeftPage,
+        setDualRightPage,
+        swapDualPages,
         setTool,
         setToolConfig,
         addStroke,

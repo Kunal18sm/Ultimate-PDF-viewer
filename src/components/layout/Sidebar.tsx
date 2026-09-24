@@ -189,6 +189,9 @@ export const Sidebar: React.FC = () => {
             pdfDoc={currentLoadedDocId === activeDoc.id ? pdfDoc : null}
             numPages={activeDoc.numPages}
             currentPage={activeDoc.currentPage}
+            leftPage={activeDoc.dualLeftPage ?? activeDoc.currentPage ?? 1}
+            rightPage={activeDoc.dualRightPage ?? ((activeDoc.dualLeftPage ?? activeDoc.currentPage ?? 1) + 1)}
+            isDual={activeDoc.viewMode === 'dual'}
             onPageSelect={setCurrentPage}
           />
         )}
@@ -233,8 +236,9 @@ const ThumbnailItem: React.FC<{
   pdfDoc: any;
   pageNum: number;
   isSelected: boolean;
+  screenBadge?: string | null;
   onClick: () => void;
-}> = ({ docId, pdfDoc, pageNum, isSelected, onClick }) => {
+}> = ({ docId, pdfDoc, pageNum, isSelected, screenBadge, onClick }) => {
   const cacheKey = `${docId}_p${pageNum}`;
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [imgSrc, setImgSrc] = useState<string | null>(() => thumbnailDataUrlCache.get(cacheKey) || null);
@@ -355,6 +359,13 @@ const ThumbnailItem: React.FC<{
             <span className="text-[10px] text-slate-400 font-mono font-medium">Page {pageNum}</span>
           </div>
         )}
+
+        {/* Dual Screen Screen 1 / Screen 2 indicator badge */}
+        {screenBadge && (
+          <div className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded-md bg-blue-600 text-white font-bold text-[9px] shadow-md shadow-blue-500/30 ring-1 ring-white/20">
+            {screenBadge}
+          </div>
+        )}
       </div>
 
       <span className={`text-[11px] font-medium transition-colors ${
@@ -371,20 +382,31 @@ const ThumbnailsGrid: React.FC<{
   pdfDoc: any;
   numPages: number;
   currentPage: number;
+  leftPage?: number;
+  rightPage?: number;
+  isDual?: boolean;
   onPageSelect: (page: number) => void;
-}> = ({ docId, pdfDoc, numPages, currentPage, onPageSelect }) => {
+}> = ({ docId, pdfDoc, numPages, currentPage, leftPage, rightPage, isDual, onPageSelect }) => {
   return (
     <div className="p-3 grid grid-cols-2 gap-2.5">
-      {Array.from({ length: numPages }, (_, i) => i + 1).map(pageNum => (
-        <ThumbnailItem
-          key={`thumb-${docId}-p-${pageNum}`}
-          docId={docId}
-          pdfDoc={pdfDoc}
-          pageNum={pageNum}
-          isSelected={currentPage === pageNum}
-          onClick={() => onPageSelect(pageNum)}
-        />
-      ))}
+      {Array.from({ length: numPages }, (_, i) => i + 1).map(pageNum => {
+        const isLeft = Boolean(isDual && leftPage === pageNum);
+        const isRight = Boolean(isDual && rightPage === pageNum);
+        const isSelected = isDual ? Boolean(isLeft || isRight) : (currentPage === pageNum);
+        const screenBadge = isLeft && isRight ? 'S1 & S2' : isLeft ? 'Screen 1' : isRight ? 'Screen 2' : null;
+
+        return (
+          <ThumbnailItem
+            key={`thumb-${docId}-p-${pageNum}`}
+            docId={docId}
+            pdfDoc={pdfDoc}
+            pageNum={pageNum}
+            isSelected={isSelected}
+            screenBadge={screenBadge}
+            onClick={() => onPageSelect(pageNum)}
+          />
+        );
+      })}
     </div>
   );
 };

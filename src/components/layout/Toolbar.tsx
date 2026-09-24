@@ -60,6 +60,8 @@ export const Toolbar: React.FC = () => {
     showPageStamps,
     toggleShowPageStamps,
     requestProtectedDelete,
+    dualActivePane,
+    setDualActivePane,
   } = usePDF();
 
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -68,6 +70,11 @@ export const Toolbar: React.FC = () => {
   if (!activeDoc) return null;
 
   const { currentPage, numPages, zoom, viewMode } = activeDoc;
+  const currentActivePage = viewMode === 'dual'
+    ? (dualActivePane === 'right' 
+        ? (activeDoc.dualRightPage ?? Math.min((activeDoc.dualLeftPage ?? currentPage) + 1, numPages))
+        : (activeDoc.dualLeftPage ?? currentPage))
+    : currentPage;
 
   const isShapeActive = ['rect', 'circle', 'arrow', 'line'].includes(currentTool.tool);
 
@@ -425,11 +432,21 @@ export const Toolbar: React.FC = () => {
 
         {/* Page Navigation */}
         <div className="flex items-center gap-1 bg-slate-800/60 px-2 py-1 rounded-xl border border-slate-700/50 text-xs">
+          {viewMode === 'dual' && (
+            <button
+              onClick={() => setDualActivePane(dualActivePane === 'left' ? 'right' : 'left')}
+              className="px-1.5 py-0.5 rounded bg-blue-600/20 text-blue-400 hover:bg-blue-600/30 border border-blue-500/30 text-[10px] font-bold cursor-pointer mr-0.5 transition-colors"
+              title={`Currently navigating ${dualActivePane === 'left' ? 'Screen 1 (Left)' : 'Screen 2 (Right)'}. Click to switch.`}
+            >
+              {dualActivePane === 'left' ? 'S1' : 'S2'}
+            </button>
+          )}
+
           <button
-            onClick={() => setCurrentPage(currentPage - 1)}
-            disabled={currentPage <= 1}
+            onClick={() => setCurrentPage(currentActivePage - 1)}
+            disabled={currentActivePage <= 1}
             className="p-0.5 text-slate-400 hover:text-white disabled:opacity-30 cursor-pointer"
-            title="Previous Page (Left Arrow)"
+            title="Previous Page"
           >
             <ChevronLeft className="w-4 h-4" />
           </button>
@@ -439,7 +456,7 @@ export const Toolbar: React.FC = () => {
               type="number"
               min={1}
               max={numPages}
-              value={currentPage}
+              value={currentActivePage}
               onChange={(e) => {
                 const val = parseInt(e.target.value);
                 if (!isNaN(val)) setCurrentPage(val);
@@ -451,10 +468,10 @@ export const Toolbar: React.FC = () => {
           </div>
 
           <button
-            onClick={() => setCurrentPage(currentPage + 1)}
-            disabled={currentPage >= numPages}
+            onClick={() => setCurrentPage(currentActivePage + 1)}
+            disabled={currentActivePage >= numPages}
             className="p-0.5 text-slate-400 hover:text-white disabled:opacity-30 cursor-pointer"
-            title="Next Page (Right Arrow)"
+            title="Next Page"
           >
             <ChevronRight className="w-4 h-4" />
           </button>

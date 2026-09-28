@@ -76,6 +76,10 @@ export const Navbar: React.FC = () => {
   // Active Move Menu popup for tab
   const [movingDocId, setMovingDocId] = useState<string | null>(null);
 
+  // Drag & Drop state for moving PDFs to sections
+  const [draggingDocId, setDraggingDocId] = useState<string | null>(null);
+  const [dragOverSectionId, setDragOverSectionId] = useState<string | null>(null);
+
   // Close move dropdown on click outside
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -215,6 +219,7 @@ export const Navbar: React.FC = () => {
               const isRenaming = renamingSectionId === section.id;
               const count = documents.filter(d => (d.sectionId || 'default') === section.id).length;
               const sectionColor = section.color || '#3b82f6';
+              const isDragOver = dragOverSectionId === section.id;
 
               return (
                 <div
@@ -224,19 +229,62 @@ export const Navbar: React.FC = () => {
                     setRenamingSectionId(section.id);
                     setSectionRenameInput(section.name);
                   }}
-                  className={`group flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-semibold border transition-all shrink-0 cursor-pointer relative ${
-                    isActive
+                  onDragOver={e => {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = 'move';
+                    if (dragOverSectionId !== section.id) {
+                      setDragOverSectionId(section.id);
+                    }
+                  }}
+                  onDragLeave={e => {
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    if (
+                      e.clientX < rect.left ||
+                      e.clientX >= rect.right ||
+                      e.clientY < rect.top ||
+                      e.clientY >= rect.bottom
+                    ) {
+                      setDragOverSectionId(null);
+                    }
+                  }}
+                  onDrop={e => {
+                    e.preventDefault();
+                    const docId = e.dataTransfer.getData('text/plain') || draggingDocId;
+                    if (docId) {
+                      moveDocumentToSection(docId, section.id);
+                      confetti({
+                        particleCount: 35,
+                        spread: 50,
+                        origin: { y: 0.15 },
+                        colors: [sectionColor, '#3b82f6', '#10b981'],
+                      });
+                    }
+                    setDragOverSectionId(null);
+                    setDraggingDocId(null);
+                  }}
+                  className={`group flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-semibold border transition-all duration-200 shrink-0 cursor-pointer relative ${
+                    isDragOver
+                      ? 'scale-110 ring-2 ring-white bg-slate-700 text-white shadow-xl z-20'
+                      : isActive
                       ? 'bg-slate-800 text-white shadow-md ring-1'
+                      : draggingDocId
+                      ? 'bg-slate-800/60 border-dashed border-slate-600 text-slate-300 hover:border-slate-400'
                       : 'bg-slate-800/40 hover:bg-slate-800/80 border-slate-800 text-slate-400 hover:text-slate-200'
                   }`}
                   style={{
-                    borderColor: isActive ? sectionColor : undefined,
-                    boxShadow: isActive ? `0 0 10px ${sectionColor}25` : undefined,
+                    borderColor: isDragOver ? '#ffffff' : isActive ? sectionColor : undefined,
+                    boxShadow: isDragOver
+                      ? `0 0 15px ${sectionColor}`
+                      : isActive
+                      ? `0 0 10px ${sectionColor}25`
+                      : undefined,
                   }}
-                  title={`Section: ${section.name} (Double-click to rename)`}
+                  title={`Section: ${section.name} (Drop PDF here to move, Double-click to rename)`}
                 >
                   <span
-                    className="w-2.5 h-2.5 rounded-full shrink-0 shadow-xs"
+                    className={`w-2.5 h-2.5 rounded-full shrink-0 shadow-xs transition-transform ${
+                      isDragOver ? 'scale-125' : ''
+                    }`}
                     style={{ backgroundColor: sectionColor }}
                   />
 
@@ -482,19 +530,32 @@ export const Navbar: React.FC = () => {
               const isRenaming = renamingDocId === doc.id;
               const cleanName = doc.name.replace(/\.pdf$/i, '');
               const docSection = sections.find(s => s.id === (doc.sectionId || 'default'));
+              const isThisDragging = draggingDocId === doc.id;
               const isMoving = movingDocId === doc.id;
 
               return (
                 <div
                   key={doc.id}
+                  draggable={!isRenaming}
+                  onDragStart={e => {
+                    e.dataTransfer.setData('text/plain', doc.id);
+                    e.dataTransfer.effectAllowed = 'move';
+                    setDraggingDocId(doc.id);
+                  }}
+                  onDragEnd={() => {
+                    setDraggingDocId(null);
+                    setDragOverSectionId(null);
+                  }}
                   onClick={() => !isRenaming && setActiveDocument(doc.id)}
                   onDoubleClick={() => !isRenaming && startRenaming(doc.id, doc.name)}
-                  className={`group relative flex items-center gap-1.5 px-2.5 py-1 rounded-xl border text-xs font-medium cursor-pointer transition-all shrink-0 max-w-[140px] sm:max-w-[180px] md:max-w-[220px] ${
-                    isActive
+                  className={`group relative flex items-center gap-1.5 px-2.5 py-1 rounded-xl border text-xs font-medium cursor-grab active:cursor-grabbing transition-all shrink-0 max-w-[140px] sm:max-w-[180px] md:max-w-[220px] ${
+                    isThisDragging
+                      ? 'opacity-40 scale-95 border-dashed border-blue-400 bg-blue-500/10'
+                      : isActive
                       ? 'bg-blue-600/20 border-blue-500/80 text-blue-200 shadow-xs ring-1 ring-blue-500/40 font-semibold'
                       : 'bg-slate-800/40 border-slate-800/80 text-slate-400 hover:bg-slate-800 hover:text-slate-200'
                   }`}
-                  title={`Double click to rename: ${doc.name}`}
+                  title={`Drag & Drop onto any section above to move. Double-click to rename.`}
                 >
                   <span
                     className="w-2 h-2 rounded-full shrink-0"

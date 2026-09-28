@@ -8,7 +8,9 @@ import {
   Cpu, 
   CheckCircle, 
   FileText,
-  RefreshCw
+  RefreshCw,
+  Pencil,
+  Check
 } from 'lucide-react';
 
 interface StorageManagerModalProps {
@@ -17,7 +19,9 @@ interface StorageManagerModalProps {
 }
 
 export const StorageManagerModal: React.FC<StorageManagerModalProps> = ({ isOpen, onClose }) => {
-  const { documents, closeDocument, requestProtectedDelete } = usePDF();
+  const { documents, closeDocument, renameDocument, requestProtectedDelete } = usePDF();
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState('');
   const [storageInfo, setStorageInfo] = useState<{ totalBytes: number; count: number }>({ totalBytes: 0, count: 0 });
 
   const refreshStorage = () => {
@@ -121,35 +125,90 @@ export const StorageManagerModal: React.FC<StorageManagerModalProps> = ({ isOpen
               <div className="space-y-2 max-h-48 overflow-y-auto">
                 {documents.map(doc => {
                   const docMb = ((doc.arrayBuffer?.byteLength || 0) / (1024 * 1024)).toFixed(2);
+                  const isRenaming = renamingId === doc.id;
+
                   return (
                     <div
                       key={doc.id}
-                      className="p-2.5 rounded-xl bg-slate-800/40 border border-slate-800 flex items-center justify-between text-xs"
+                      className="p-2.5 rounded-xl bg-slate-800/40 border border-slate-800 flex items-center justify-between text-xs gap-2"
                     >
-                      <div className="flex items-center gap-2.5 truncate max-w-[280px]">
+                      <div className="flex items-center gap-2.5 min-w-0 flex-1">
                         <FileText className="w-4 h-4 text-blue-400 shrink-0" />
-                        <div className="truncate">
-                          <p className="text-white font-medium truncate">{doc.name}</p>
-                          <p className="text-[10px] text-slate-500">{doc.numPages} pages • {docMb} MB</p>
-                        </div>
+                        
+                        {isRenaming ? (
+                          <form
+                            onSubmit={(e) => {
+                              e.preventDefault();
+                              if (renameValue.trim()) renameDocument(doc.id, renameValue);
+                              setRenamingId(null);
+                            }}
+                            className="flex items-center gap-1.5 flex-1"
+                          >
+                            <input
+                              type="text"
+                              value={renameValue}
+                              onChange={(e) => setRenameValue(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Escape') setRenamingId(null);
+                              }}
+                              autoFocus
+                              className="w-full bg-slate-950 text-white text-xs px-2 py-1 rounded-lg border border-blue-500 focus:outline-hidden font-medium"
+                            />
+                            <button
+                              type="submit"
+                              className="p-1 rounded-md bg-blue-600 text-white hover:bg-blue-500 cursor-pointer"
+                              title="Save Name"
+                            >
+                              <Check className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setRenamingId(null)}
+                              className="p-1 rounded-md hover:bg-slate-700 text-slate-400 hover:text-white cursor-pointer"
+                              title="Cancel"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </form>
+                        ) : (
+                          <div className="truncate">
+                            <p className="text-white font-medium truncate" title={doc.name}>{doc.name}</p>
+                            <p className="text-[10px] text-slate-500">{doc.numPages} pages • {docMb} MB</p>
+                          </div>
+                        )}
                       </div>
 
-                      <button
-                        onClick={() => {
-                          requestProtectedDelete({
-                            title: 'Delete Document from Storage',
-                            itemDescription: `Are you sure you want to remove "${doc.name}" from local storage and close it?`,
-                            onConfirm: () => {
-                              closeDocument(doc.id);
-                              refreshStorage();
-                            },
-                          });
-                        }}
-                        className="p-1.5 rounded-lg text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition-colors cursor-pointer"
-                        title="Close Tab and delete from local storage"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                      {!isRenaming && (
+                        <div className="flex items-center gap-1 shrink-0">
+                          <button
+                            onClick={() => {
+                              setRenamingId(doc.id);
+                              setRenameValue(doc.name.replace(/\.pdf$/i, ''));
+                            }}
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-blue-400 hover:bg-blue-500/10 transition-colors cursor-pointer"
+                            title="Rename Document"
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                          </button>
+
+                          <button
+                            onClick={() => {
+                              requestProtectedDelete({
+                                title: 'Delete Document from Storage',
+                                itemDescription: `Are you sure you want to remove "${doc.name}" from local storage and close it?`,
+                                onConfirm: () => {
+                                  closeDocument(doc.id);
+                                  refreshStorage();
+                                },
+                              });
+                            }}
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition-colors cursor-pointer"
+                            title="Close Tab and delete from local storage"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      )}
                     </div>
                   );
                 })}

@@ -38,6 +38,7 @@ interface PDFContextType {
   // Actions
   openFiles: (files: FileList | File[]) => Promise<void>;
   closeDocument: (docId: string) => void;
+  renameDocument: (docId: string, newName: string) => void;
   setActiveDocument: (docId: string) => void;
   
   // View & Page controls
@@ -273,6 +274,21 @@ export const PDFProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return filtered;
     });
   }, [activeDocId]);
+
+  // Rename document tab
+  const renameDocument = useCallback((docId: string, newName: string) => {
+    const trimmed = newName.trim();
+    if (!trimmed) return;
+    const finalName = trimmed.toLowerCase().endsWith('.pdf') ? trimmed : `${trimmed}.pdf`;
+    setDocuments(prev =>
+      prev.map(doc => {
+        if (doc.id === docId) {
+          return { ...doc, name: finalName };
+        }
+        return doc;
+      })
+    );
+  }, []);
 
   // Tool selection
   const setTool = useCallback((tool: ToolType) => {
@@ -692,6 +708,7 @@ export const PDFProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         isAutoSaved,
         openFiles,
         closeDocument,
+        renameDocument,
         setActiveDocument: setActiveDocId,
         setCurrentPage,
         setZoom,

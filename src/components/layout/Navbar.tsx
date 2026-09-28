@@ -280,14 +280,14 @@ export const Navbar: React.FC = () => {
                       </span>
 
                       {/* Section Quick Actions on Hover */}
-                      <div className="flex items-center gap-0.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <div className="flex items-center gap-0.5 max-w-0 opacity-0 overflow-hidden group-hover:max-w-[60px] group-hover:opacity-100 group-hover:ml-1 transition-all duration-200 ease-out shrink-0">
                         <button
                           onClick={e => {
                             e.stopPropagation();
                             setRenamingSectionId(section.id);
                             setSectionRenameInput(section.name);
                           }}
-                          className="p-0.5 rounded hover:bg-slate-700 text-slate-400 hover:text-blue-300"
+                          className="p-0.5 rounded hover:bg-slate-700 text-slate-400 hover:text-blue-300 transition-colors"
                           title="Rename section"
                         >
                           <Pencil className="w-2.5 h-2.5" />
@@ -303,7 +303,7 @@ export const Navbar: React.FC = () => {
                                 onConfirm: () => deleteSection(section.id),
                               });
                             }}
-                            className="p-0.5 rounded hover:bg-red-500/20 text-slate-400 hover:text-red-300"
+                            className="p-0.5 rounded hover:bg-red-500/20 text-slate-400 hover:text-red-300 transition-colors"
                             title="Delete section"
                           >
                             <X className="w-2.5 h-2.5" />
@@ -541,7 +541,7 @@ export const Navbar: React.FC = () => {
                       <span className="truncate text-[11px] flex-1">{cleanName}</span>
 
                       {/* Action buttons on hover */}
-                      <div className="flex items-center gap-0.5 shrink-0">
+                      <div className="flex items-center gap-0.5 max-w-0 opacity-0 overflow-hidden group-hover:max-w-[80px] group-hover:opacity-100 group-hover:ml-1 transition-all duration-200 ease-out shrink-0">
                         {/* Move to another section button */}
                         <div className="relative" data-move-menu>
                           <button
@@ -549,7 +549,7 @@ export const Navbar: React.FC = () => {
                               e.stopPropagation();
                               setMovingDocId(isMoving ? null : doc.id);
                             }}
-                            className="opacity-0 group-hover:opacity-100 p-0.5 rounded-md hover:bg-slate-700/80 text-slate-400 hover:text-emerald-300 transition-opacity cursor-pointer"
+                            className="p-0.5 rounded-md hover:bg-slate-700/80 text-slate-400 hover:text-emerald-300 transition-colors cursor-pointer"
                             title="Move to another section"
                           >
                             <MoveRight className="w-2.5 h-2.5" />
@@ -595,7 +595,7 @@ export const Navbar: React.FC = () => {
                             e.stopPropagation();
                             startRenaming(doc.id, doc.name);
                           }}
-                          className="opacity-0 group-hover:opacity-100 p-0.5 rounded-md hover:bg-slate-700/80 text-slate-400 hover:text-blue-300 transition-opacity cursor-pointer"
+                          className="p-0.5 rounded-md hover:bg-slate-700/80 text-slate-400 hover:text-blue-300 transition-colors cursor-pointer"
                           title="Rename Tab (or double click tab)"
                         >
                           <Pencil className="w-2.5 h-2.5" />
@@ -611,7 +611,7 @@ export const Navbar: React.FC = () => {
                               onConfirm: () => closeDocument(doc.id),
                             });
                           }}
-                          className="opacity-0 group-hover:opacity-100 p-0.5 rounded-md hover:bg-red-500/20 text-slate-400 hover:text-red-300 transition-opacity cursor-pointer"
+                          className="p-0.5 rounded-md hover:bg-red-500/20 text-slate-400 hover:text-red-300 transition-colors cursor-pointer"
                           title="Close Tab"
                         >
                           <X className="w-3 h-3" />

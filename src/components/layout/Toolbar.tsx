@@ -66,6 +66,7 @@ export const Toolbar: React.FC = () => {
 
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isShapeDropdownOpen, setIsShapeDropdownOpen] = useState(false);
+  const [isToolbarOpen, setIsToolbarOpen] = useState(true);
 
   if (!activeDoc) return null;
 
@@ -79,7 +80,16 @@ export const Toolbar: React.FC = () => {
   const isShapeActive = ['rect', 'circle', 'arrow', 'line'].includes(currentTool.tool);
 
   return (
-    <div className="relative z-40 bg-slate-900/90 border-b border-slate-800 px-3 py-1.5 flex items-center justify-between gap-2 select-none backdrop-blur-md overflow-visible">
+    <div className="relative z-40 select-none">
+      {/* Collapsible Main Toolbar Area */}
+      <div
+        className={`transition-all duration-300 ease-in-out bg-slate-900/90 border-b border-slate-800 backdrop-blur-md overflow-visible ${
+          isToolbarOpen
+            ? 'max-h-24 opacity-100 py-1.5 px-3'
+            : 'max-h-0 opacity-0 py-0 px-3 overflow-hidden border-b-0 pointer-events-none'
+        }`}
+      >
+        <div className="flex items-center justify-between gap-2 min-w-0">
       {/* 1. Primary Tool Selection Bar */}
       <div className="flex items-center gap-1 bg-slate-800/60 p-1 rounded-xl border border-slate-700/50">
         {/* Select Text */}
@@ -476,6 +486,26 @@ export const Toolbar: React.FC = () => {
             <ChevronRight className="w-4 h-4" />
           </button>
         </div>
+      </div>
+    </div>
+  </div>
+
+      {/* Center Arrow Toggle Button */}
+      <div className="absolute left-1/2 -bottom-4 -translate-x-1/2 z-50 flex items-center justify-center pointer-events-auto">
+        <button
+          onClick={() => setIsToolbarOpen(prev => !prev)}
+          className="group/btn flex items-center gap-1 bg-slate-900/95 hover:bg-slate-800 text-slate-400 hover:text-white border border-slate-700/80 rounded-b-xl px-3 py-0.5 text-[10px] font-semibold shadow-md shadow-black/50 cursor-pointer transition-all duration-200 hover:scale-105 backdrop-blur-md"
+          title={isToolbarOpen ? 'Collapse Tools Bar' : 'Expand Tools Bar'}
+        >
+          <ChevronDown
+            className={`w-3.5 h-3.5 transition-transform duration-300 text-blue-400 group-hover/btn:text-blue-300 ${
+              isToolbarOpen ? 'rotate-180' : 'rotate-0'
+            }`}
+          />
+          <span className="text-[10px] font-medium text-slate-400 group-hover/btn:text-slate-200">
+            {isToolbarOpen ? 'Hide Tools' : 'Show Tools'}
+          </span>
+        </button>
       </div>
 
       {/* Floating Search Overlay */}

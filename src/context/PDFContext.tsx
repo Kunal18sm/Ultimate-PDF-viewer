@@ -172,7 +172,14 @@ export const PDFProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Custom Category Sections state
   const [sections, setSections] = useState<CustomSection[]>(loadInitialSections);
-  const [activeSectionId, setActiveSectionId] = useState<string>('all'); // 'all' or specific section id
+  const [activeSectionId, setActiveSectionIdState] = useState<string>(() => {
+    return localStorage.getItem('ultimate_pdf_active_section') || 'all';
+  });
+
+  const setActiveSectionId = useCallback((secId: string) => {
+    setActiveSectionIdState(secId);
+    localStorage.setItem('ultimate_pdf_active_section', secId);
+  }, []);
 
   // Section CRUD methods
   const addSection = useCallback((name: string, color?: string) => {
@@ -189,7 +196,7 @@ export const PDFProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
     setActiveSectionId(newSection.id);
     return newSection.id;
-  }, []);
+  }, [setActiveSectionId]);
 
   const renameSection = useCallback((id: string, newName: string, newColor?: string) => {
     setSections(prev => {
@@ -211,17 +218,21 @@ export const PDFProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return finalSections;
     });
     // Move any documents in this deleted section to 'default'
-    setDocuments(prevDocs =>
-      prevDocs.map(doc => (doc.sectionId === id ? { ...doc, sectionId: 'default' } : doc))
-    );
-    setActiveSectionId(prev => (prev === id ? 'all' : prev));
-  }, []);
+    setDocuments(prevDocs => {
+      const updated = prevDocs.map(doc => (doc.sectionId === id ? { ...doc, sectionId: 'default' } : doc));
+      saveDocumentsToDB(updated, activeDocId);
+      return updated;
+    });
+    setActiveSectionId('all');
+  }, [activeDocId, setActiveSectionId]);
 
   const moveDocumentToSection = useCallback((docId: string, targetSectionId: string) => {
-    setDocuments(prevDocs =>
-      prevDocs.map(doc => (doc.id === docId ? { ...doc, sectionId: targetSectionId } : doc))
-    );
-  }, []);
+    setDocuments(prevDocs => {
+      const updated = prevDocs.map(doc => (doc.id === docId ? { ...doc, sectionId: targetSectionId } : doc));
+      saveDocumentsToDB(updated, activeDocId);
+      return updated;
+    });
+  }, [activeDocId]);
 
   // UI state
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
@@ -326,7 +337,11 @@ export const PDFProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         bookmarks: []
       };
 
-      setDocuments(prev => [...prev, newDoc]);
+      setDocuments(prev => {
+        const updated = [...prev, newDoc];
+        saveDocumentsToDB(updated, newDocId);
+        return updated;
+      });
       setActiveDocId(newDocId);
     } catch (err) {
       console.error('Failed to load PDF', err);
@@ -336,25 +351,29 @@ export const PDFProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Open user-selected files
   const openFiles = useCallback(async (files: FileList | File[], targetSectionId?: string) => {
+    const assignedSection = targetSectionId || (activeSectionId !== 'all' ? activeSectionId : 'default');
     const fileArray = Array.from(files);
     for (const file of fileArray) {
       if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
         const buffer = await file.arrayBuffer();
-        await loadPdfFromBuffer(buffer, file.name, targetSectionId);
+        await loadPdfFromBuffer(buffer, file.name, assignedSection);
       }
     }
-  }, [loadPdfFromBuffer]);
+  }, [loadPdfFromBuffer, activeSectionId]);
 
   // Close tab
   const closeDocument = useCallback((docId: string) => {
     deleteDocumentFromDB(docId);
     setDocuments(prev => {
       const filtered = prev.filter(d => d.id !== docId);
+      let nextActiveId = activeDocId;
       if (activeDocId === docId) {
         const remainingIdx = prev.findIndex(d => d.id === docId);
         const nextDoc = filtered[remainingIdx] || filtered[remainingIdx - 1] || filtered[0] || null;
-        setActiveDocId(nextDoc ? nextDoc.id : null);
+        nextActiveId = nextDoc ? nextDoc.id : null;
+        setActiveDocId(nextActiveId);
       }
+      saveDocumentsToDB(filtered, nextActiveId);
       return filtered;
     });
   }, [activeDocId]);
@@ -364,15 +383,17 @@ export const PDFProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const trimmed = newName.trim();
     if (!trimmed) return;
     const finalName = trimmed.toLowerCase().endsWith('.pdf') ? trimmed : `${trimmed}.pdf`;
-    setDocuments(prev =>
-      prev.map(doc => {
+    setDocuments(prev => {
+      const updated = prev.map(doc => {
         if (doc.id === docId) {
           return { ...doc, name: finalName };
         }
         return doc;
-      })
-    );
-  }, []);
+      });
+      saveDocumentsToDB(updated, activeDocId);
+      return updated;
+    });
+  }, [activeDocId]);
 
   // Tool selection
   const setTool = useCallback((tool: ToolType) => {

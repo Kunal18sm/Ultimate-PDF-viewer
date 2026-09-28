@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { usePDF } from '../../context/PDFContext';
 import { exportAnnotatedPdf } from '../../utils/pdfExport';
 import confetti from 'canvas-confetti';
@@ -17,9 +17,6 @@ import {
   HardDrive,
   Lock,
   Pencil,
-  ChevronDown,
-  Search,
-  CheckCircle2,
   FolderOpen,
   FolderPlus,
   MoveRight,
@@ -27,12 +24,12 @@ import {
 import { StorageManagerModal } from '../common/StorageManagerModal';
 
 const COLOR_PALETTE = [
-  { name: 'Blue', hex: '#3b82f6', bgClass: 'bg-blue-500', textClass: 'text-blue-400', borderClass: 'border-blue-500' },
-  { name: 'Emerald', hex: '#10b981', bgClass: 'bg-emerald-500', textClass: 'text-emerald-400', borderClass: 'border-emerald-500' },
-  { name: 'Amber', hex: '#f59e0b', bgClass: 'bg-amber-500', textClass: 'text-amber-400', borderClass: 'border-amber-500' },
-  { name: 'Purple', hex: '#8b5cf6', bgClass: 'bg-purple-500', textClass: 'text-purple-400', borderClass: 'border-purple-500' },
-  { name: 'Rose', hex: '#f43f5e', bgClass: 'bg-rose-500', textClass: 'text-rose-400', borderClass: 'border-rose-500' },
-  { name: 'Cyan', hex: '#06b6d4', bgClass: 'bg-cyan-500', textClass: 'text-cyan-400', borderClass: 'border-cyan-500' },
+  { name: 'Blue', hex: '#3b82f6' },
+  { name: 'Emerald', hex: '#10b981' },
+  { name: 'Amber', hex: '#f59e0b' },
+  { name: 'Purple', hex: '#8b5cf6' },
+  { name: 'Rose', hex: '#f43f5e' },
+  { name: 'Cyan', hex: '#06b6d4' },
 ];
 
 export const Navbar: React.FC = () => {
@@ -76,20 +73,12 @@ export const Navbar: React.FC = () => {
   const [renamingSectionId, setRenamingSectionId] = useState<string | null>(null);
   const [sectionRenameInput, setSectionRenameInput] = useState('');
 
-  // Dropdown switcher state
-  const [isDocDropdownOpen, setIsDocDropdownOpen] = useState(false);
-  const [dropdownSearch, setDropdownSearch] = useState('');
-  const dropdownRef = useRef<HTMLDivElement | null>(null);
-
   // Active Move Menu popup for tab
   const [movingDocId, setMovingDocId] = useState<string | null>(null);
 
-  // Close dropdowns on click outside
+  // Close move dropdown on click outside
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
-        setIsDocDropdownOpen(false);
-      }
       const target = e.target as HTMLElement;
       if (!target.closest('[data-move-menu]')) {
         setMovingDocId(null);
@@ -180,10 +169,6 @@ export const Navbar: React.FC = () => {
       }
     }
   };
-
-  const filteredDocsForDropdown = documents.filter(d =>
-    d.name.toLowerCase().includes(dropdownSearch.toLowerCase())
-  );
 
   return (
     <header className="bg-slate-900 border-b border-slate-800 flex flex-col z-40 select-none shadow-lg">
@@ -485,339 +470,183 @@ export const Navbar: React.FC = () => {
 
       {/* Tier 2: Selected Section's PDF Document Tabs Bar */}
       <div className="flex items-center justify-between px-2.5 sm:px-3 py-1 bg-slate-950/60 gap-2 border-t border-slate-800/40">
-        {/* Left: Active Section Label + Document Switcher */}
-        <div className="flex items-center gap-2 flex-1 min-w-0 overflow-hidden">
-          {/* Dropdown Switcher Button */}
-          <div className="relative shrink-0" ref={dropdownRef}>
-            <button
-              onClick={() => setIsDocDropdownOpen(!isDocDropdownOpen)}
-              className={`p-1 px-2 rounded-lg text-xs font-semibold flex items-center gap-1.5 border transition-all cursor-pointer ${
-                isDocDropdownOpen
-                  ? 'bg-blue-600 text-white border-blue-500'
-                  : 'bg-slate-800/80 hover:bg-slate-800 border-slate-700/60 text-slate-300 hover:text-white'
-              }`}
-              title="View all PDFs list"
-            >
-              <FileText className="w-3.5 h-3.5 text-blue-400" />
-              <span className="text-[11px] font-mono font-bold">{sectionFilteredDocs.length}</span>
-              <span className="hidden sm:inline text-[11px]">in Section</span>
-              <ChevronDown className={`w-3 h-3 transition-transform ${isDocDropdownOpen ? 'rotate-180' : ''}`} />
-            </button>
+        {/* Multi-Document Compact Tabs for Current Section */}
+        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5 flex-1 min-w-0">
+          {sectionFilteredDocs.length === 0 ? (
+            <div className="text-[11px] text-slate-500 italic py-1 px-2">
+              No PDFs in this section yet. Click &quot;+ Open PDF&quot; to add one!
+            </div>
+          ) : (
+            sectionFilteredDocs.map(doc => {
+              const isActive = doc.id === activeDocId;
+              const isRenaming = renamingDocId === doc.id;
+              const cleanName = doc.name.replace(/\.pdf$/i, '');
+              const docSection = sections.find(s => s.id === (doc.sectionId || 'default'));
+              const isMoving = movingDocId === doc.id;
 
-            {/* Document Switcher Floating Dropdown Menu */}
-            {isDocDropdownOpen && (
-              <div className="absolute top-full left-0 mt-1.5 bg-slate-900 border border-slate-700/90 rounded-2xl shadow-2xl p-2 z-50 min-w-[300px] max-w-[360px] flex flex-col gap-1.5 backdrop-blur-md animate-in fade-in zoom-in-95 duration-100">
-                <div className="flex items-center justify-between pb-1.5 border-b border-slate-800 px-1">
-                  <span className="text-xs font-bold text-slate-300">
-                    {activeSectionId === 'all' ? 'All PDFs' : `${currentSection?.name || 'Section'} PDFs`} ({sectionFilteredDocs.length})
-                  </span>
-                  <span className="text-[10px] text-slate-500">Switch or rename</span>
-                </div>
+              return (
+                <div
+                  key={doc.id}
+                  onClick={() => !isRenaming && setActiveDocument(doc.id)}
+                  onDoubleClick={() => !isRenaming && startRenaming(doc.id, doc.name)}
+                  className={`group relative flex items-center gap-1.5 px-2.5 py-1 rounded-xl border text-xs font-medium cursor-pointer transition-all shrink-0 max-w-[140px] sm:max-w-[180px] md:max-w-[220px] ${
+                    isActive
+                      ? 'bg-blue-600/20 border-blue-500/80 text-blue-200 shadow-xs ring-1 ring-blue-500/40 font-semibold'
+                      : 'bg-slate-800/40 border-slate-800/80 text-slate-400 hover:bg-slate-800 hover:text-slate-200'
+                  }`}
+                  title={`Double click to rename: ${doc.name}`}
+                >
+                  <span
+                    className="w-2 h-2 rounded-full shrink-0"
+                    style={{ backgroundColor: docSection?.color || '#3b82f6' }}
+                    title={`Section: ${docSection?.name || 'General'}`}
+                  />
+                  <FileText className={`w-3 h-3 shrink-0 ${isActive ? 'text-blue-400' : 'text-slate-500'}`} />
 
-                {/* Quick Search */}
-                {documents.length > 3 && (
-                  <div className="relative mb-1">
-                    <Search className="w-3 h-3 text-slate-500 absolute left-2 top-1/2 -translate-y-1/2" />
-                    <input
-                      type="text"
-                      placeholder="Search PDF names..."
-                      value={dropdownSearch}
-                      onChange={e => setDropdownSearch(e.target.value)}
-                      className="w-full pl-6 pr-2 py-1 bg-slate-950 border border-slate-800 rounded-lg text-xs text-white placeholder-slate-500 focus:outline-hidden focus:border-blue-500"
-                    />
-                  </div>
-                )}
-
-                {/* Documents List */}
-                <div className="space-y-1 max-h-64 overflow-y-auto pr-0.5">
-                  {filteredDocsForDropdown.map(doc => {
-                    const isActive = doc.id === activeDocId;
-                    const isRenamingThis = renamingDocId === doc.id;
-                    const cleanName = doc.name.replace(/\.pdf$/i, '');
-                    const docSection = sections.find(s => s.id === (doc.sectionId || 'default'));
-
-                    return (
-                      <div
-                        key={doc.id}
-                        onClick={() => {
-                          if (!isRenamingThis) {
-                            setActiveDocument(doc.id);
-                            setIsDocDropdownOpen(false);
-                          }
+                  {isRenaming ? (
+                    <form
+                      onSubmit={e => {
+                        e.preventDefault();
+                        handleSaveRename(doc.id);
+                      }}
+                      onClick={e => e.stopPropagation()}
+                      className="flex items-center gap-1 min-w-0 flex-1"
+                    >
+                      <input
+                        type="text"
+                        value={renameInput}
+                        onChange={e => setRenameInput(e.target.value)}
+                        onKeyDown={e => {
+                          if (e.key === 'Escape') setRenamingDocId(null);
                         }}
-                        className={`group p-2 rounded-xl border flex items-center justify-between gap-2 transition-all cursor-pointer text-xs ${
-                          isActive
-                            ? 'bg-blue-600/20 border-blue-500 text-white shadow-xs'
-                            : 'bg-slate-800/40 border-slate-800 hover:bg-slate-800/90 hover:border-slate-700 text-slate-300'
-                        }`}
+                        autoFocus
+                        className="w-20 sm:w-28 bg-slate-950 text-white text-[11px] px-1 py-0.5 rounded border border-blue-500 focus:outline-hidden font-mono"
+                      />
+                      <button
+                        type="submit"
+                        className="p-0.5 rounded bg-blue-600 text-white hover:bg-blue-500"
                       >
-                        <div className="flex items-center gap-2 min-w-0 flex-1">
-                          <FileText className={`w-3.5 h-3.5 shrink-0 ${isActive ? 'text-blue-400' : 'text-slate-400'}`} />
+                        <Check className="w-2.5 h-2.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setRenamingDocId(null)}
+                        className="p-0.5 rounded hover:bg-slate-700 text-slate-400"
+                      >
+                        <X className="w-2.5 h-2.5" />
+                      </button>
+                    </form>
+                  ) : (
+                    <>
+                      <span className="truncate text-[11px] flex-1">{cleanName}</span>
 
-                          {isRenamingThis ? (
-                            <form
-                              onSubmit={e => {
-                                e.preventDefault();
-                                handleSaveRename(doc.id);
-                              }}
-                              onClick={e => e.stopPropagation()}
-                              className="flex items-center gap-1 flex-1"
-                            >
-                              <input
-                                type="text"
-                                value={renameInput}
-                                onChange={e => setRenameInput(e.target.value)}
-                                onKeyDown={e => {
-                                  if (e.key === 'Escape') setRenamingDocId(null);
-                                }}
-                                autoFocus
-                                className="w-full bg-slate-950 text-white text-xs px-1.5 py-0.5 rounded border border-blue-500 focus:outline-hidden"
-                              />
-                              <button
-                                type="submit"
-                                className="p-1 rounded bg-blue-600 text-white hover:bg-blue-500"
-                              >
-                                <Check className="w-3 h-3" />
-                              </button>
-                            </form>
-                          ) : (
-                            <div className="flex flex-col min-w-0">
-                              <span className="font-medium truncate text-xs" title={doc.name}>
-                                {cleanName}
+                      {/* Action buttons on hover */}
+                      <div className="flex items-center gap-0.5 shrink-0">
+                        {/* Move to another section button */}
+                        <div className="relative" data-move-menu>
+                          <button
+                            onClick={e => {
+                              e.stopPropagation();
+                              setMovingDocId(isMoving ? null : doc.id);
+                            }}
+                            className="opacity-0 group-hover:opacity-100 p-0.5 rounded-md hover:bg-slate-700/80 text-slate-400 hover:text-emerald-300 transition-opacity cursor-pointer"
+                            title="Move to another section"
+                          >
+                            <MoveRight className="w-2.5 h-2.5" />
+                          </button>
+
+                          {/* Move Menu Dropdown */}
+                          {isMoving && (
+                            <div className="absolute top-full left-0 mt-1 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl p-1.5 z-50 min-w-[140px] flex flex-col gap-1 backdrop-blur-md">
+                              <span className="text-[10px] font-bold text-slate-400 px-1 pb-1 border-b border-slate-800">
+                                Move to Section:
                               </span>
-                              <div className="flex items-center gap-2 text-[10px] text-slate-500 font-mono">
-                                <span>{doc.numPages} pages</span>
-                                {docSection && (
-                                  <span className="flex items-center gap-1">
-                                    <span
-                                      className="w-1.5 h-1.5 rounded-full"
-                                      style={{ backgroundColor: docSection.color || '#3b82f6' }}
-                                    />
-                                    {docSection.name}
-                                  </span>
-                                )}
-                              </div>
+                              {sections.map(sec => (
+                                <button
+                                  key={sec.id}
+                                  onClick={e => {
+                                    e.stopPropagation();
+                                    moveDocumentToSection(doc.id, sec.id);
+                                    setMovingDocId(null);
+                                  }}
+                                  className={`flex items-center gap-1.5 px-2 py-1 rounded-lg text-[11px] text-left hover:bg-slate-800 transition-colors cursor-pointer ${
+                                    (doc.sectionId || 'default') === sec.id
+                                      ? 'text-blue-400 font-bold bg-blue-500/10'
+                                      : 'text-slate-300'
+                                  }`}
+                                >
+                                  <span
+                                    className="w-2 h-2 rounded-full"
+                                    style={{ backgroundColor: sec.color || '#3b82f6' }}
+                                  />
+                                  <span className="truncate">{sec.name}</span>
+                                  {(doc.sectionId || 'default') === sec.id && (
+                                    <Check className="w-3 h-3 ml-auto text-blue-400" />
+                                  )}
+                                </button>
+                              ))}
                             </div>
                           )}
                         </div>
 
-                        {!isRenamingThis && (
-                          <div className="flex items-center gap-1 shrink-0">
-                            {isActive && <CheckCircle2 className="w-3.5 h-3.5 text-blue-400" />}
-
-                            {/* Rename button */}
-                            <button
-                              onClick={e => {
-                                e.stopPropagation();
-                                startRenaming(doc.id, doc.name);
-                              }}
-                              className="p-1 rounded-md text-slate-400 hover:text-blue-400 hover:bg-blue-500/10 opacity-0 group-hover:opacity-100 transition-opacity"
-                              title="Rename Document"
-                            >
-                              <Pencil className="w-3 h-3" />
-                            </button>
-
-                            {/* Close button */}
-                            <button
-                              onClick={e => {
-                                e.stopPropagation();
-                                requestProtectedDelete({
-                                  title: 'Close Document Tab',
-                                  itemDescription: `Are you sure you want to close "${doc.name}"? It will be removed from your active session.`,
-                                  onConfirm: () => closeDocument(doc.id),
-                                });
-                              }}
-                              className="p-1 rounded-md text-slate-400 hover:text-red-400 hover:bg-red-500/10 opacity-0 group-hover:opacity-100 transition-opacity"
-                              title="Close Tab"
-                            >
-                              <X className="w-3 h-3" />
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Multi-Document Compact Tabs for Current Section */}
-          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5 flex-1 min-w-0">
-            {sectionFilteredDocs.length === 0 ? (
-              <div className="text-[11px] text-slate-500 italic py-1 px-2">
-                No PDFs in this section yet. Click &quot;+ Open PDF&quot; below to add one!
-              </div>
-            ) : (
-              sectionFilteredDocs.map(doc => {
-                const isActive = doc.id === activeDocId;
-                const isRenaming = renamingDocId === doc.id;
-                const cleanName = doc.name.replace(/\.pdf$/i, '');
-                const docSection = sections.find(s => s.id === (doc.sectionId || 'default'));
-                const isMoving = movingDocId === doc.id;
-
-                return (
-                  <div
-                    key={doc.id}
-                    onClick={() => !isRenaming && setActiveDocument(doc.id)}
-                    onDoubleClick={() => !isRenaming && startRenaming(doc.id, doc.name)}
-                    className={`group relative flex items-center gap-1.5 px-2.5 py-1 rounded-xl border text-xs font-medium cursor-pointer transition-all shrink-0 max-w-[130px] sm:max-w-[170px] md:max-w-[210px] ${
-                      isActive
-                        ? 'bg-blue-600/20 border-blue-500/80 text-blue-200 shadow-xs ring-1 ring-blue-500/40 font-semibold'
-                        : 'bg-slate-800/40 border-slate-800/80 text-slate-400 hover:bg-slate-800 hover:text-slate-200'
-                    }`}
-                    title={`Double click to rename: ${doc.name}`}
-                  >
-                    <span
-                      className="w-2 h-2 rounded-full shrink-0"
-                      style={{ backgroundColor: docSection?.color || '#3b82f6' }}
-                      title={`Section: ${docSection?.name || 'General'}`}
-                    />
-
-                    {isRenaming ? (
-                      <form
-                        onSubmit={e => {
-                          e.preventDefault();
-                          handleSaveRename(doc.id);
-                        }}
-                        onClick={e => e.stopPropagation()}
-                        className="flex items-center gap-1 min-w-0 flex-1"
-                      >
-                        <input
-                          type="text"
-                          value={renameInput}
-                          onChange={e => setRenameInput(e.target.value)}
-                          onKeyDown={e => {
-                            if (e.key === 'Escape') setRenamingDocId(null);
+                        {/* Rename icon */}
+                        <button
+                          onClick={e => {
+                            e.stopPropagation();
+                            startRenaming(doc.id, doc.name);
                           }}
-                          autoFocus
-                          className="w-20 sm:w-28 bg-slate-950 text-white text-[11px] px-1 py-0.5 rounded border border-blue-500 focus:outline-hidden font-mono"
-                        />
-                        <button
-                          type="submit"
-                          className="p-0.5 rounded bg-blue-600 text-white hover:bg-blue-500"
+                          className="opacity-0 group-hover:opacity-100 p-0.5 rounded-md hover:bg-slate-700/80 text-slate-400 hover:text-blue-300 transition-opacity cursor-pointer"
+                          title="Rename Tab (or double click tab)"
                         >
-                          <Check className="w-2.5 h-2.5" />
+                          <Pencil className="w-2.5 h-2.5" />
                         </button>
+
+                        {/* Close Tab */}
                         <button
-                          type="button"
-                          onClick={() => setRenamingDocId(null)}
-                          className="p-0.5 rounded hover:bg-slate-700 text-slate-400"
+                          onClick={e => {
+                            e.stopPropagation();
+                            requestProtectedDelete({
+                              title: 'Close Document Tab',
+                              itemDescription: `Are you sure you want to close "${doc.name}"? It will be removed from your active session.`,
+                              onConfirm: () => closeDocument(doc.id),
+                            });
+                          }}
+                          className="opacity-0 group-hover:opacity-100 p-0.5 rounded-md hover:bg-red-500/20 text-slate-400 hover:text-red-300 transition-opacity cursor-pointer"
+                          title="Close Tab"
                         >
-                          <X className="w-2.5 h-2.5" />
+                          <X className="w-3 h-3" />
                         </button>
-                      </form>
-                    ) : (
-                      <>
-                        <span className="truncate text-[11px] flex-1">{cleanName}</span>
+                      </div>
+                    </>
+                  )}
+                </div>
+              );
+            })
+          )}
 
-                        {/* Action buttons on hover */}
-                        <div className="flex items-center gap-0.5 shrink-0">
-                          {/* Move to another section button */}
-                          <div className="relative" data-move-menu>
-                            <button
-                              onClick={e => {
-                                e.stopPropagation();
-                                setMovingDocId(isMoving ? null : doc.id);
-                              }}
-                              className="opacity-0 group-hover:opacity-100 p-0.5 rounded-md hover:bg-slate-700/80 text-slate-400 hover:text-emerald-300 transition-opacity cursor-pointer"
-                              title="Move to another section"
-                            >
-                              <MoveRight className="w-2.5 h-2.5" />
-                            </button>
-
-                            {/* Move Menu Dropdown */}
-                            {isMoving && (
-                              <div className="absolute top-full left-0 mt-1 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl p-1.5 z-50 min-w-[140px] flex flex-col gap-1 backdrop-blur-md">
-                                <span className="text-[10px] font-bold text-slate-400 px-1 pb-1 border-b border-slate-800">
-                                  Move to Section:
-                                </span>
-                                {sections.map(sec => (
-                                  <button
-                                    key={sec.id}
-                                    onClick={e => {
-                                      e.stopPropagation();
-                                      moveDocumentToSection(doc.id, sec.id);
-                                      setMovingDocId(null);
-                                    }}
-                                    className={`flex items-center gap-1.5 px-2 py-1 rounded-lg text-[11px] text-left hover:bg-slate-800 transition-colors cursor-pointer ${
-                                      (doc.sectionId || 'default') === sec.id
-                                        ? 'text-blue-400 font-bold bg-blue-500/10'
-                                        : 'text-slate-300'
-                                    }`}
-                                  >
-                                    <span
-                                      className="w-2 h-2 rounded-full"
-                                      style={{ backgroundColor: sec.color || '#3b82f6' }}
-                                    />
-                                    <span className="truncate">{sec.name}</span>
-                                    {(doc.sectionId || 'default') === sec.id && (
-                                      <Check className="w-3 h-3 ml-auto text-blue-400" />
-                                    )}
-                                  </button>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-
-                          {/* Rename icon */}
-                          <button
-                            onClick={e => {
-                              e.stopPropagation();
-                              startRenaming(doc.id, doc.name);
-                            }}
-                            className="opacity-0 group-hover:opacity-100 p-0.5 rounded-md hover:bg-slate-700/80 text-slate-400 hover:text-blue-300 transition-opacity cursor-pointer"
-                            title="Rename Tab (or double click tab)"
-                          >
-                            <Pencil className="w-2.5 h-2.5" />
-                          </button>
-
-                          {/* Close Tab */}
-                          <button
-                            onClick={e => {
-                              e.stopPropagation();
-                              requestProtectedDelete({
-                                title: 'Close Document Tab',
-                                itemDescription: `Are you sure you want to close "${doc.name}"? It will be removed from your active session.`,
-                                onConfirm: () => closeDocument(doc.id),
-                              });
-                            }}
-                            className="opacity-0 group-hover:opacity-100 p-0.5 rounded-md hover:bg-red-500/20 text-slate-400 hover:text-red-300 transition-opacity cursor-pointer"
-                            title="Close Tab"
-                          >
-                            <X className="w-3 h-3" />
-                          </button>
-                        </div>
-                      </>
-                    )}
-                  </div>
-                );
-              })
-            )}
-
-            {/* "+ Open PDF to [Section]" Button */}
-            <label
-              className="p-1 px-2.5 rounded-xl bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/40 text-blue-400 hover:text-blue-300 cursor-pointer transition-colors flex items-center gap-1 text-xs shrink-0 font-medium shadow-xs"
-              title={`Open and add PDF directly to ${activeSectionId === 'all' ? 'General' : currentSection?.name || 'Section'}`}
-            >
-              <Plus className="w-3.5 h-3.5" />
-              <span className="text-[11px] pr-0.5 font-semibold">
-                Open PDF {activeSectionId !== 'all' && currentSection ? `to ${currentSection.name}` : ''}
-              </span>
-              <input
-                type="file"
-                multiple
-                accept="application/pdf"
-                className="hidden"
-                onChange={e => {
-                  if (e.target.files) {
-                    const targetSec = activeSectionId !== 'all' ? activeSectionId : 'default';
-                    openFiles(e.target.files, targetSec);
-                  }
-                }}
-              />
-            </label>
-          </div>
+          {/* "+ Open PDF to [Section]" Button */}
+          <label
+            className="p-1 px-2.5 rounded-xl bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/40 text-blue-400 hover:text-blue-300 cursor-pointer transition-colors flex items-center gap-1 text-xs shrink-0 font-medium shadow-xs"
+            title={`Open and add PDF directly to ${activeSectionId === 'all' ? 'General' : currentSection?.name || 'Section'}`}
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span className="text-[11px] pr-0.5 font-semibold">
+              Open PDF {activeSectionId !== 'all' && currentSection ? `to ${currentSection.name}` : ''}
+            </span>
+            <input
+              type="file"
+              multiple
+              accept="application/pdf"
+              className="hidden"
+              onChange={e => {
+                if (e.target.files && e.target.files.length > 0) {
+                  const targetSec = activeSectionId !== 'all' ? activeSectionId : 'default';
+                  openFiles(e.target.files, targetSec);
+                  e.target.value = '';
+                }
+              }}
+            />
+          </label>
         </div>
       </div>
 

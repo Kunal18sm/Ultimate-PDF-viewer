@@ -68,14 +68,33 @@ export const PDFViewer: React.FC = () => {
     };
   }, [activeDoc?.id, activeDoc?.arrayBuffer]);
 
-  // Scroll to active page in continuous view
+  const isUserScrollingRef = useRef(false);
+  const scrollEndTimerRef = useRef<any>(null);
+
+  const handleContainerScroll = useCallback(() => {
+    isUserScrollingRef.current = true;
+    if (scrollEndTimerRef.current) clearTimeout(scrollEndTimerRef.current);
+    scrollEndTimerRef.current = setTimeout(() => {
+      isUserScrollingRef.current = false;
+    }, 250);
+  }, []);
+
+  // Scroll to active page in continuous view ONLY when initiated programmatically
   useEffect(() => {
     if (!activeDoc || activeDoc.viewMode !== 'continuous') return;
+    if (isUserScrollingRef.current) return; // Ignore if user is manually scrolling
+
     const pageEl = document.getElementById(`page-container-${activeDoc.currentPage}`);
     if (pageEl && containerRef.current) {
       pageEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
   }, [activeDoc?.currentPage, activeDoc?.viewMode]);
+
+  const handlePageVisible = useCallback((page: number) => {
+    if (activeDoc && activeDoc.currentPage !== page) {
+      setCurrentPage(page);
+    }
+  }, [activeDoc?.currentPage, setCurrentPage]);
 
   // Handle Mouse Wheel Zoom when in Hand / Pan tool OR when Ctrl is held
   useEffect(() => {
@@ -185,6 +204,7 @@ export const PDFViewer: React.FC = () => {
   return (
     <div
       ref={containerRef}
+      onScroll={handleContainerScroll}
       onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
       onDragLeave={() => setIsDragOver(false)}
       onDrop={handleDrop}
@@ -192,7 +212,7 @@ export const PDFViewer: React.FC = () => {
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
       onMouseLeave={handleMouseUp}
-      className={`flex-1 relative overflow-auto bg-slate-950 flex flex-col items-center p-4 sm:p-8 ${
+      className={`flex-1 relative overflow-auto bg-slate-950 flex flex-col items-center p-4 sm:p-8 will-change-scroll ${
         isDragOver ? 'ring-4 ring-blue-500 ring-inset bg-blue-950/20' : ''
       } ${
         currentTool.tool === 'pan'
@@ -234,7 +254,7 @@ export const PDFViewer: React.FC = () => {
                 scale={zoom}
                 rotation={rotation}
                 filters={filters}
-                onVisible={() => setCurrentPage(pageNumber)}
+                onPageVisible={handlePageVisible}
               />
             ))
           )}
@@ -480,7 +500,7 @@ export const PDFViewer: React.FC = () => {
   );
 };
 
-// Continuous Page Wrapper with IntersectionObserver for virtualized rendering
+// Continuous Page Wrapper with Dual Observers for butter-smooth virtualized rendering
 const ContinuousPageWrapper: React.FC<{
   pageNumber: number;
   currentPage: number;
@@ -488,56 +508,71 @@ const ContinuousPageWrapper: React.FC<{
   scale: number;
   rotation: number;
   filters: any;
-  onVisible: () => void;
-}> = ({ pageNumber, currentPage, pdfDoc, scale, rotation, filters, onVisible }) => {
+  onPageVisible: (page: number) => void;
+}> = React.memo(({ pageNumber, currentPage, pdfDoc, scale, rotation, filters, onPageVisible }) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [shouldRender, setShouldRender] = useState(
-    Math.abs(pageNumber - currentPage) <= 2 // pre-render near pages immediately
+    Math.abs(pageNumber - currentPage) <= 1 // pre-render immediate neighbors
   );
 
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
 
-    const observer = new IntersectionObserver(
+    // Observer to mount and render page canvas when within 700px of viewport
+    const renderObserver = new IntersectionObserver(
       (entries) => {
         if (entries[0].isIntersecting) {
           setShouldRender(true);
-          onVisible();
         }
       },
-      { rootMargin: '300px 0px 300px 0px' }
+      { rootMargin: '700px 0px 700px 0px' }
     );
 
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [onVisible]);
-
-  if (!shouldRender) {
-    return (
-      <div
-        ref={containerRef}
-        id={`page-container-${pageNumber}`}
-        style={{
-          width: 600 * scale,
-          height: 800 * scale,
-        }}
-        className="my-4 bg-slate-900/30 border border-slate-800 rounded-sm flex items-center justify-center"
-      >
-        <span className="text-xs text-slate-600 font-mono">Page {pageNumber}</span>
-      </div>
+    // Observer to track which page is primarily in view (50% visible)
+    const visibilityObserver = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          onPageVisible(pageNumber);
+        }
+      },
+      { threshold: 0.5 }
     );
-  }
+
+    renderObserver.observe(el);
+    visibilityObserver.observe(el);
+
+    return () => {
+      renderObserver.disconnect();
+      visibilityObserver.disconnect();
+    };
+  }, [onPageVisible, pageNumber]);
 
   return (
-    <div ref={containerRef} className="w-full flex justify-center">
-      <PageRenderer
-        pageNumber={pageNumber}
-        pdfDoc={pdfDoc}
-        scale={scale}
-        rotation={rotation}
-        filters={filters}
-      />
+    <div
+      ref={containerRef}
+      id={`page-container-${pageNumber}`}
+      className="w-full flex justify-center my-4"
+    >
+      {shouldRender ? (
+        <PageRenderer
+          pageNumber={pageNumber}
+          pdfDoc={pdfDoc}
+          scale={scale}
+          rotation={rotation}
+          filters={filters}
+        />
+      ) : (
+        <div
+          style={{
+            width: `${600 * scale}px`,
+            height: `${800 * scale}px`,
+          }}
+          className="bg-slate-900/40 border border-slate-800/80 rounded-xl flex items-center justify-center shadow-lg"
+        >
+          <span className="text-xs text-slate-600 font-mono">Page {pageNumber}</span>
+        </div>
+      )}
     </div>
   );
-};
+});

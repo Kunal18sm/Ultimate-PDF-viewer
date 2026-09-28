@@ -104,9 +104,17 @@ export interface PDFOutlineItem {
   items?: PDFOutlineItem[];
 }
 
+export interface CustomSection {
+  id: string;
+  name: string;
+  color?: string; // hex or tailwind color
+  createdAt: number;
+}
+
 export interface PDFDocumentState {
   id: string;
   name: string;
+  sectionId?: string; // Custom category/section ID
   file?: File;
   dataUrl?: string;
   arrayBuffer?: ArrayBuffer;

@@ -39,9 +39,12 @@ export async function saveDocumentsToDB(docs: PDFDocumentState[], activeDocId: s
       const docToSave = {
         id: doc.id,
         name: doc.name,
+        sectionId: doc.sectionId || 'default',
         arrayBuffer: doc.arrayBuffer,
         numPages: doc.numPages,
         currentPage: doc.currentPage,
+        dualLeftPage: doc.dualLeftPage,
+        dualRightPage: doc.dualRightPage,
         zoom: doc.zoom,
         rotation: doc.rotation,
         viewMode: doc.viewMode,

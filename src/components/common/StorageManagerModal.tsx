@@ -19,7 +19,7 @@ interface StorageManagerModalProps {
 }
 
 export const StorageManagerModal: React.FC<StorageManagerModalProps> = ({ isOpen, onClose }) => {
-  const { documents, closeDocument, renameDocument, requestProtectedDelete } = usePDF();
+  const { documents, sections, closeDocument, renameDocument, requestProtectedDelete } = usePDF();
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
   const [storageInfo, setStorageInfo] = useState<{ totalBytes: number; count: number }>({ totalBytes: 0, count: 0 });
@@ -172,7 +172,23 @@ export const StorageManagerModal: React.FC<StorageManagerModalProps> = ({ isOpen
                           </form>
                         ) : (
                           <div className="truncate">
-                            <p className="text-white font-medium truncate" title={doc.name}>{doc.name}</p>
+                            <div className="flex items-center gap-1.5">
+                              <p className="text-white font-medium truncate" title={doc.name}>{doc.name}</p>
+                              {(() => {
+                                const sec = sections.find(s => s.id === (doc.sectionId || 'default'));
+                                return sec ? (
+                                  <span
+                                    className="px-1.5 py-0.5 rounded text-[10px] font-semibold shrink-0"
+                                    style={{
+                                      backgroundColor: `${sec.color || '#3b82f6'}20`,
+                                      color: sec.color || '#3b82f6',
+                                    }}
+                                  >
+                                    {sec.name}
+                                  </span>
+                                ) : null;
+                              })()}
+                            </div>
                             <p className="text-[10px] text-slate-500">{doc.numPages} pages • {docMb} MB</p>
                           </div>
                         )}

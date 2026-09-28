@@ -10,7 +10,8 @@ import type {
   TextAnnotation,
   PageStamp,
   SearchMatch,
-  SecurityProtectedAction
+  SecurityProtectedAction,
+  CustomSection
 } from '../types/pdf';
 import { pdfjsLib } from '../utils/pdfWorker';
 import { saveDocumentsToDB, loadDocumentsFromDB, deleteDocumentFromDB } from '../utils/db';
@@ -20,6 +21,15 @@ interface PDFContextType {
   activeDocId: string | null;
   activeDoc: PDFDocumentState | null;
   currentTool: CurrentToolConfig;
+
+  // Custom Category Sections
+  sections: CustomSection[];
+  activeSectionId: string;
+  setActiveSectionId: (sectionId: string) => void;
+  addSection: (name: string, color?: string) => string;
+  renameSection: (id: string, newName: string, newColor?: string) => void;
+  deleteSection: (id: string) => void;
+  moveDocumentToSection: (docId: string, sectionId: string) => void;
   
   // UI State
   isSidebarOpen: boolean;
@@ -36,7 +46,7 @@ interface PDFContextType {
   isAutoSaved: boolean;
 
   // Actions
-  openFiles: (files: FileList | File[]) => Promise<void>;
+  openFiles: (files: FileList | File[], targetSectionId?: string) => Promise<void>;
   closeDocument: (docId: string) => void;
   renameDocument: (docId: string, newName: string) => void;
   setActiveDocument: (docId: string) => void;
@@ -133,6 +143,25 @@ const defaultToolConfig: CurrentToolConfig = {
 
 const PDFContext = createContext<PDFContextType | null>(null);
 
+const DEFAULT_SECTIONS: CustomSection[] = [
+  { id: 'default', name: 'General', color: '#3b82f6', createdAt: 1 },
+  { id: 'sec_maths', name: 'Maths', color: '#10b981', createdAt: 2 },
+  { id: 'sec_notes', name: 'Notes', color: '#f59e0b', createdAt: 3 },
+];
+
+const loadInitialSections = (): CustomSection[] => {
+  try {
+    const raw = localStorage.getItem('ultimate_pdf_custom_sections');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+  } catch (e) {
+    console.error('Failed to parse custom sections', e);
+  }
+  return DEFAULT_SECTIONS;
+};
+
 export const PDFProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [documents, setDocuments] = useState<PDFDocumentState[]>([]);
   const [activeDocId, setActiveDocId] = useState<string | null>(null);
@@ -140,6 +169,59 @@ export const PDFProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [isLoadedFromDB, setIsLoadedFromDB] = useState(false);
   const [isAutoSaved, setIsAutoSaved] = useState(true);
   const saveTimeoutRef = useRef<any>(null);
+
+  // Custom Category Sections state
+  const [sections, setSections] = useState<CustomSection[]>(loadInitialSections);
+  const [activeSectionId, setActiveSectionId] = useState<string>('all'); // 'all' or specific section id
+
+  // Section CRUD methods
+  const addSection = useCallback((name: string, color?: string) => {
+    const newSection: CustomSection = {
+      id: `sec_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+      name: name.trim() || 'New Section',
+      color: color || '#3b82f6',
+      createdAt: Date.now(),
+    };
+    setSections(prev => {
+      const updated = [...prev, newSection];
+      localStorage.setItem('ultimate_pdf_custom_sections', JSON.stringify(updated));
+      return updated;
+    });
+    setActiveSectionId(newSection.id);
+    return newSection.id;
+  }, []);
+
+  const renameSection = useCallback((id: string, newName: string, newColor?: string) => {
+    setSections(prev => {
+      const updated = prev.map(s => s.id === id ? {
+        ...s,
+        name: newName.trim() || s.name,
+        color: newColor || s.color,
+      } : s);
+      localStorage.setItem('ultimate_pdf_custom_sections', JSON.stringify(updated));
+      return updated;
+    });
+  }, []);
+
+  const deleteSection = useCallback((id: string) => {
+    setSections(prev => {
+      const updated = prev.filter(s => s.id !== id);
+      const finalSections = updated.length > 0 ? updated : DEFAULT_SECTIONS;
+      localStorage.setItem('ultimate_pdf_custom_sections', JSON.stringify(finalSections));
+      return finalSections;
+    });
+    // Move any documents in this deleted section to 'default'
+    setDocuments(prevDocs =>
+      prevDocs.map(doc => (doc.sectionId === id ? { ...doc, sectionId: 'default' } : doc))
+    );
+    setActiveSectionId(prev => (prev === id ? 'all' : prev));
+  }, []);
+
+  const moveDocumentToSection = useCallback((docId: string, targetSectionId: string) => {
+    setDocuments(prevDocs =>
+      prevDocs.map(doc => (doc.id === docId ? { ...doc, sectionId: targetSectionId } : doc))
+    );
+  }, []);
 
   // UI state
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
@@ -205,7 +287,7 @@ export const PDFProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [activeDocId]);
 
   // Load a document from ArrayBuffer
-  const loadPdfFromBuffer = useCallback(async (buffer: ArrayBuffer, fileName: string) => {
+  const loadPdfFromBuffer = useCallback(async (buffer: ArrayBuffer, fileName: string, targetSectionId?: string) => {
     try {
       const bufferData = new Uint8Array(buffer.slice(0));
       const loadingTask = pdfjsLib.getDocument({ data: bufferData });
@@ -220,10 +302,12 @@ export const PDFProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         console.warn('No outline found in PDF', e);
       }
 
+      const assignedSection = targetSectionId || (activeSectionId !== 'all' ? activeSectionId : 'default');
       const newDocId = `doc_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
       const newDoc: PDFDocumentState = {
         id: newDocId,
         name: fileName,
+        sectionId: assignedSection,
         arrayBuffer: buffer,
         numPages,
         currentPage: 1,
@@ -248,15 +332,15 @@ export const PDFProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       console.error('Failed to load PDF', err);
       alert('Error loading PDF file. Please ensure it is a valid PDF format.');
     }
-  }, []);
+  }, [activeSectionId]);
 
   // Open user-selected files
-  const openFiles = useCallback(async (files: FileList | File[]) => {
+  const openFiles = useCallback(async (files: FileList | File[], targetSectionId?: string) => {
     const fileArray = Array.from(files);
     for (const file of fileArray) {
       if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
         const buffer = await file.arrayBuffer();
-        await loadPdfFromBuffer(buffer, file.name);
+        await loadPdfFromBuffer(buffer, file.name, targetSectionId);
       }
     }
   }, [loadPdfFromBuffer]);
@@ -691,6 +775,13 @@ export const PDFProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         activeDocId,
         activeDoc,
         currentTool,
+        sections,
+        activeSectionId,
+        setActiveSectionId,
+        addSection,
+        renameSection,
+        deleteSection,
+        moveDocumentToSection,
         isSidebarOpen,
         activeSidebarTab,
         isStampPickerOpen,

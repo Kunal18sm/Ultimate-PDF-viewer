@@ -26,7 +26,7 @@ export const PageRenderer: React.FC<PageRendererProps> = ({
   rotation,
   filters,
 }) => {
-  const { activeDoc, toggleBookmark, searchQuery, showPageStamps } = usePDF();
+  const { activeDoc, toggleBookmark, searchQuery, searchResults, currentSearchMatchIndex, showPageStamps } = usePDF();
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const textLayerRef = useRef<HTMLDivElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -116,13 +116,21 @@ export const PageRenderer: React.FC<PageRendererProps> = ({
           const query = searchQuery.trim().toLowerCase();
           const regex = query ? new RegExp(`(${searchQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi') : null;
 
+          let pageMatchCounter = 0;
+          const currentMatch = searchResults[currentSearchMatchIndex];
+          const isThisPageActiveMatch = currentMatch?.pageNumber === pageNumber;
+
           for (const item of textContent.items as any[]) {
             if (!item.str) continue;
             const textSpan = document.createElement('span');
             const text = item.str;
 
             if (regex && text.toLowerCase().includes(query)) {
-              textSpan.innerHTML = text.replace(regex, '<mark class="search-highlight">$1</mark>');
+              textSpan.innerHTML = text.replace(regex, (matchStr: string) => {
+                const isActive = isThisPageActiveMatch && pageMatchCounter === currentMatch.matchIndex;
+                pageMatchCounter++;
+                return `<mark class="search-highlight ${isActive ? 'active' : ''}">${matchStr}</mark>`;
+              });
             } else {
               textSpan.textContent = text;
             }
@@ -156,7 +164,7 @@ export const PageRenderer: React.FC<PageRendererProps> = ({
         renderTask.cancel();
       }
     };
-  }, [pdfDoc, pageNumber, scale, rotation, searchQuery]);
+  }, [pdfDoc, pageNumber, scale, rotation, searchQuery, searchResults, currentSearchMatchIndex]);
 
   return (
     <div

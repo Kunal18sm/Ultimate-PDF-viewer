@@ -45,11 +45,19 @@ export const TextSearchBox: React.FC<TextSearchBoxProps> = ({ isOpen, onClose })
     }
   };
 
+  const searchDebounceRef = useRef<any>(null);
+
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
     setSearchQuery(val);
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+
     if (!val.trim()) {
       clearSearch();
+    } else {
+      searchDebounceRef.current = setTimeout(() => {
+        performSearch(val);
+      }, 250);
     }
   };
 

@@ -33,7 +33,7 @@
   background: rgba(148, 163, 184, 0.8);
 }
 
-/* Text layer styling for PDF selection */
+/* Text layer styling for PDF selection and search highlights */
 .textLayer {
   position: absolute;
   text-align: initial;
@@ -42,14 +42,14 @@
   right: 0;
   bottom: 0;
   overflow: hidden;
-  opacity: 0.25;
+  opacity: 1;
   line-height: 1;
   -webkit-text-size-adjust: none;
      -moz-text-size-adjust: none;
           text-size-adjust: none;
   forced-color-adjust: none;
   transform-origin: 0 0;
-  z-index: 2;
+  z-index: 5;
   user-select: text;
   pointer-events: auto;
 }
@@ -67,16 +67,23 @@
 }
 
 .search-highlight {
-  background-color: rgba(254, 240, 138, 0.8) !important;
-  color: #000 !important;
-  border-radius: 2px;
-  box-shadow: 0 0 0 2px rgba(234, 179, 8, 0.6);
+  background-color: #fef08a !important; /* Luminous Yellow Highlighter */
+  color: #0f172a !important;
+  font-weight: 600 !important;
+  border-radius: 3px !important;
+  padding: 1px 2px !important;
+  border: 1px solid rgba(202, 138, 4, 0.9) !important;
+  box-shadow: 0 0 8px rgba(250, 204, 21, 0.85) !important;
+  display: inline-block !important;
+  line-height: 1 !important;
 }
 
 .search-highlight.active {
-  background-color: rgba(249, 115, 22, 0.9) !important;
-  color: #fff !important;
-  box-shadow: 0 0 0 3px rgba(234, 88, 12, 0.9);
+  background-color: #f97316 !important; /* Vivid Orange Active Match */
+  color: #ffffff !important;
+  font-weight: 700 !important;
+  border: 1.5px solid #c2410c !important;
+  box-shadow: 0 0 12px rgba(249, 115, 22, 0.95), 0 0 0 2px #ffffff !important;
 }
 
 /* Custom visual filter classes */

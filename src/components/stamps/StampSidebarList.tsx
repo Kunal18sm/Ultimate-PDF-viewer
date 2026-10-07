@@ -190,7 +190,7 @@ export const StampSidebarList: React.FC = () => {
                       e.stopPropagation();
                       openStampEditor(stamp);
                     }}
-                    className="opacity-0 group-hover:opacity-100 p-1 rounded-md text-slate-400 hover:text-blue-400 hover:bg-blue-500/10 transition-all cursor-pointer"
+                    className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 p-1 rounded-md text-slate-400 hover:text-blue-400 hover:bg-blue-500/10 transition-all cursor-pointer"
                     title="Edit Stamp (Color, Name, Note)"
                   >
                     <Pencil className="w-3.5 h-3.5" />
@@ -206,7 +206,7 @@ export const StampSidebarList: React.FC = () => {
                         onConfirm: () => removeStamp(stamp.id),
                       });
                     }}
-                    className="opacity-0 group-hover:opacity-100 p-1 rounded-md text-slate-500 hover:text-red-400 hover:bg-red-500/10 transition-all cursor-pointer"
+                    className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 p-1 rounded-md text-slate-500 hover:text-red-400 hover:bg-red-500/10 transition-all cursor-pointer"
                     title="Delete Stamp"
                   >
                     <Trash2 className="w-3.5 h-3.5" />

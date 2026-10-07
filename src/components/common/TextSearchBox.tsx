@@ -62,12 +62,12 @@ export const TextSearchBox: React.FC<TextSearchBoxProps> = ({ isOpen, onClose })
   };
 
   return (
-    <div className="absolute top-4 right-6 z-40 bg-slate-900/95 border border-slate-700/80 rounded-2xl shadow-2xl p-2 flex items-center gap-2 backdrop-blur-md animate-in slide-in-from-top-2 duration-150">
-      <div className="flex items-center gap-2 px-2.5 py-1.5 bg-slate-800/80 rounded-xl border border-slate-700/50">
+    <div className="absolute top-2 sm:top-4 right-2 left-2 sm:left-auto sm:right-6 z-40 bg-slate-900/98 border border-slate-700/80 rounded-2xl shadow-2xl p-1.5 sm:p-2 flex items-center justify-between gap-1.5 sm:gap-2 backdrop-blur-xl animate-in slide-in-from-top-2 duration-150">
+      <div className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-2.5 py-1.5 bg-slate-800/80 rounded-xl border border-slate-700/50 flex-1 min-w-0">
         {isSearching ? (
-          <Loader2 className="w-4 h-4 text-blue-400 animate-spin" />
+          <Loader2 className="w-3.5 h-3.5 text-blue-400 animate-spin shrink-0" />
         ) : (
-          <Search className="w-4 h-4 text-slate-400" />
+          <Search className="w-3.5 h-3.5 text-slate-400 shrink-0" />
         )}
         <input
           ref={inputRef}
@@ -75,13 +75,13 @@ export const TextSearchBox: React.FC<TextSearchBoxProps> = ({ isOpen, onClose })
           value={searchQuery}
           onChange={handleSearchChange}
           onKeyDown={handleKeyDown}
-          placeholder="Find in document..."
-          className="bg-transparent border-0 text-xs text-white placeholder-slate-500 focus:outline-hidden w-40 sm:w-56"
+          placeholder="Find text..."
+          className="bg-transparent border-0 text-xs text-white placeholder-slate-500 focus:outline-hidden w-full min-w-0"
         />
         {searchQuery && (
           <button
             onClick={clearSearch}
-            className="text-slate-500 hover:text-slate-300 p-0.5 cursor-pointer"
+            className="text-slate-500 hover:text-slate-300 p-0.5 cursor-pointer shrink-0"
           >
             <X className="w-3.5 h-3.5" />
           </button>

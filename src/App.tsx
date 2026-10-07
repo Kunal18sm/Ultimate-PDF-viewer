@@ -8,6 +8,7 @@ import { StampPickerModal } from './components/stamps/StampPickerModal';
 import { VisualFiltersModal } from './components/common/VisualFiltersModal';
 import { ShortcutsModal } from './components/common/ShortcutsModal';
 import { SecurityDeleteModal } from './components/common/SecurityDeleteModal';
+import { BlueprintModal } from './components/blueprint/BlueprintModal';
 
 const PDFStudioApp: React.FC = () => {
   const {
@@ -117,7 +118,7 @@ const PDFStudioApp: React.FC = () => {
   }, [activeDoc, setTool, setZoom, setCurrentPage, undo, redo, isStampPickerOpen, isFiltersModalOpen, isShortcutsOpen, securityAction, setIsStampPickerOpen, setIsFiltersModalOpen, setIsShortcutsOpen]);
 
   return (
-    <div className="h-screen w-screen flex flex-col bg-slate-950 text-slate-100 overflow-hidden font-sans">
+    <div className="h-[100dvh] w-full flex flex-col bg-slate-950 text-slate-100 overflow-hidden font-sans select-none relative">
       {/* Top Navigation & Tabs */}
       <Navbar />
 
@@ -135,6 +136,7 @@ const PDFStudioApp: React.FC = () => {
       <VisualFiltersModal />
       <ShortcutsModal />
       <SecurityDeleteModal />
+      <BlueprintModal />
     </div>
   );
 };

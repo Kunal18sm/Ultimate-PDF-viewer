@@ -214,7 +214,7 @@ export const PageRenderer: React.FC<PageRendererProps> = ({
         className={`absolute top-0 right-4 z-30 p-2 transition-all cursor-pointer ${
           isBookmarked
             ? 'text-amber-400 drop-shadow-md scale-110'
-            : 'text-slate-400/40 hover:text-amber-400 opacity-0 group-hover:opacity-100'
+            : 'text-slate-400/60 hover:text-amber-400 opacity-80 sm:opacity-0 sm:group-hover:opacity-100'
         }`}
         title={isBookmarked ? 'Remove Bookmark' : 'Bookmark Page'}
       >

@@ -31,6 +31,8 @@ export const PDFViewer: React.FC = () => {
   const [isLoadingPdf, setIsLoadingPdf] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
   const [isPanning, setIsPanning] = useState(false);
+  const [mobileDualTab, setMobileDualTab] = useState<'screen1' | 'screen2' | 'both'>('screen1');
+
   const containerRef = useRef<HTMLDivElement | null>(null);
   const panStartRef = useRef<{ x: number; y: number; scrollLeft: number; scrollTop: number }>({
     x: 0,
@@ -38,6 +40,11 @@ export const PDFViewer: React.FC = () => {
     scrollLeft: 0,
     scrollTop: 0
   });
+
+  // Touch Pinch & Swipe tracking refs
+  const touchStartDistRef = useRef<number | null>(null);
+  const touchStartZoomRef = useRef<number>(1.0);
+  const touchSwipeStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
 
   // Load PDF.js doc instance via singleton cache to avoid duplicate parsing
   useEffect(() => {
@@ -102,7 +109,6 @@ export const PDFViewer: React.FC = () => {
     if (!container) return;
 
     const handleWheel = (e: WheelEvent) => {
-      // When Hand / Pan tool is active OR when Ctrl / Cmd is held
       if (currentTool.tool === 'pan' || e.ctrlKey || e.metaKey) {
         e.preventDefault();
         const zoomDelta = e.deltaY < 0 ? 0.12 : -0.12;
@@ -118,6 +124,65 @@ export const PDFViewer: React.FC = () => {
       container.removeEventListener('wheel', handleWheel);
     };
   }, [currentTool.tool, setZoom]);
+
+  // Handle Touch Gestures (Pinch to zoom + swipe in non-drawing mode)
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const handleTouchStart = (e: TouchEvent) => {
+      if (e.touches.length === 2) {
+        // Pinch zoom start
+        const dist = Math.hypot(
+          e.touches[0].clientX - e.touches[1].clientX,
+          e.touches[0].clientY - e.touches[1].clientY
+        );
+        touchStartDistRef.current = dist;
+        if (activeDoc) {
+          touchStartZoomRef.current = activeDoc.zoom;
+        }
+      } else if (e.touches.length === 1) {
+        // Track possible swipe if tool is select or pan
+        const isDrawingTool = ['pen', 'highlighter', 'rect', 'circle', 'arrow', 'line', 'eraser'].includes(currentTool.tool);
+        if (!isDrawingTool) {
+          touchSwipeStartRef.current = {
+            x: e.touches[0].clientX,
+            y: e.touches[0].clientY,
+            time: Date.now()
+          };
+        }
+      }
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+      if (e.touches.length === 2 && touchStartDistRef.current !== null) {
+        e.preventDefault();
+        const dist = Math.hypot(
+          e.touches[0].clientX - e.touches[1].clientX,
+          e.touches[0].clientY - e.touches[1].clientY
+        );
+        const scaleFactor = dist / touchStartDistRef.current;
+        const newZoom = Math.max(0.3, Math.min(4.0, Number((touchStartZoomRef.current * scaleFactor).toFixed(2))));
+        setZoom(newZoom);
+      }
+    };
+
+    const handleTouchEnd = (e: TouchEvent) => {
+      if (e.touches.length < 2) {
+        touchStartDistRef.current = null;
+      }
+    };
+
+    container.addEventListener('touchstart', handleTouchStart, { passive: true });
+    container.addEventListener('touchmove', handleTouchMove, { passive: false });
+    container.addEventListener('touchend', handleTouchEnd, { passive: true });
+
+    return () => {
+      container.removeEventListener('touchstart', handleTouchStart);
+      container.removeEventListener('touchmove', handleTouchMove);
+      container.removeEventListener('touchend', handleTouchEnd);
+    };
+  }, [activeDoc, setZoom]);
 
   // Handle Drag & Drop
   const handleDrop = useCallback((e: React.DragEvent) => {
@@ -161,24 +226,24 @@ export const PDFViewer: React.FC = () => {
         onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
         onDragLeave={() => setIsDragOver(false)}
         onDrop={handleDrop}
-        className={`flex-1 flex flex-col items-center justify-center p-8 transition-colors ${
+        className={`flex-1 flex flex-col items-center justify-center p-4 sm:p-8 transition-colors ${
           isDragOver ? 'bg-blue-900/20 border-2 border-dashed border-blue-500' : 'bg-slate-950'
         }`}
       >
-        <div className="max-w-md text-center flex flex-col items-center gap-5">
-          <div className="w-20 h-20 rounded-3xl bg-blue-600/10 border border-blue-500/20 flex items-center justify-center text-blue-400 shadow-2xl">
-            <Layers className="w-10 h-10" />
+        <div className="max-w-md w-full text-center flex flex-col items-center gap-4 sm:gap-5 px-2">
+          <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-3xl bg-blue-600/10 border border-blue-500/20 flex items-center justify-center text-blue-400 shadow-2xl">
+            <Layers className="w-8 h-8 sm:w-10 sm:h-10" />
           </div>
 
           <div>
-            <h2 className="text-2xl font-bold text-white mb-2">Ultimate PDF Studio</h2>
-            <p className="text-sm text-slate-400 leading-relaxed">
-              Open single or multiple PDFs with tabs, high-speed drawing, shape annotations, visual stamps with 1-click jump, and brightness eye-care filters.
+            <h2 className="text-xl sm:text-2xl font-bold text-white mb-2">Ultimate PDF Studio</h2>
+            <p className="text-xs sm:text-sm text-slate-400 leading-relaxed max-w-sm mx-auto">
+              Open single or multiple PDFs with tabs, high-speed drawing, shape annotations, visual stamps, and brightness eye-care filters.
             </p>
           </div>
 
-          <div className="w-full max-w-sm">
-            <label className="w-full py-3.5 px-6 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-sm font-semibold cursor-pointer flex items-center justify-center gap-2.5 shadow-lg shadow-blue-600/30 transition-all hover:scale-[1.02] active:scale-[0.98]">
+          <div className="w-full max-w-xs sm:max-w-sm">
+            <label className="w-full py-3.5 px-5 bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white rounded-2xl text-sm font-semibold cursor-pointer flex items-center justify-center gap-2.5 shadow-lg shadow-blue-600/30 transition-all hover:scale-[1.02] active:scale-[0.98]">
               <Upload className="w-4 h-4" />
               Open / Upload PDF File(s)
               <input
@@ -191,8 +256,8 @@ export const PDFViewer: React.FC = () => {
             </label>
           </div>
 
-          <span className="text-xs text-slate-500">
-            or drag and drop your PDF files here
+          <span className="text-[11px] sm:text-xs text-slate-500">
+            100% Offline &amp; Private in Your Browser
           </span>
         </div>
       </div>
@@ -212,7 +277,7 @@ export const PDFViewer: React.FC = () => {
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
       onMouseLeave={handleMouseUp}
-      className={`flex-1 relative overflow-auto bg-slate-950 flex flex-col items-center p-4 sm:p-8 will-change-scroll ${
+      className={`flex-1 relative overflow-auto bg-slate-950 flex flex-col items-center p-2 sm:p-6 md:p-8 will-change-scroll touch-pan-x touch-pan-y ${
         isDragOver ? 'ring-4 ring-blue-500 ring-inset bg-blue-950/20' : ''
       } ${
         currentTool.tool === 'pan'
@@ -232,7 +297,7 @@ export const PDFViewer: React.FC = () => {
 
       {/* Pages View Rendering */}
       {pdfDoc && (
-        <div className="w-full flex flex-col items-center justify-center gap-8 pb-16">
+        <div className="w-full flex flex-col items-center justify-center gap-4 sm:gap-8 pb-16">
           {viewMode === 'single' && (
             <PageRenderer
               key={`p-${activeDoc.id}-${currentPage}-${zoom}-${rotation}`}
@@ -264,47 +329,54 @@ export const PDFViewer: React.FC = () => {
             const rightPage = activeDoc.dualRightPage ?? (leftPage < numPages ? leftPage + 1 : leftPage);
 
             return (
-              <div className="w-full flex flex-col items-center gap-5">
+              <div className="w-full flex flex-col items-center gap-4 sm:gap-5">
                 {/* Top Floating Dual Screen Controls Bar */}
-                <div className="bg-slate-900/90 border border-slate-700/80 rounded-2xl px-4 py-2 flex flex-wrap items-center justify-between gap-3 backdrop-blur-md shadow-xl max-w-4xl w-full">
-                  <div className="flex items-center gap-2">
-                    <div className="p-1.5 rounded-lg bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                <div className="bg-slate-900/95 border border-slate-700/80 rounded-2xl p-2.5 sm:px-4 sm:py-2 flex flex-col sm:flex-row items-center justify-between gap-2.5 sm:gap-3 backdrop-blur-md shadow-xl max-w-4xl w-full">
+                  <div className="flex items-center gap-2 w-full sm:w-auto">
+                    <div className="p-1.5 rounded-lg bg-blue-500/10 text-blue-400 border border-blue-500/20 shrink-0">
                       <Columns2 className="w-4 h-4" />
                     </div>
                     <div>
                       <span className="text-xs font-bold text-white flex items-center gap-1.5">
-                        Dual Screen Comparison Mode
+                        Dual Screen Comparison
                       </span>
-                      <p className="text-[11px] text-slate-400">
-                        Click Screen 1 or Screen 2 to set active target. Any stamp or page you click will open in that screen.
+                      <p className="text-[10px] sm:text-[11px] text-slate-400">
+                        Tap Screen 1 or Screen 2 to set active jump target.
                       </p>
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  {/* Dual Mode Switcher & Actions */}
+                  <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-end">
                     {/* Active Target Buttons */}
-                    <div className="flex items-center bg-slate-950 p-1 rounded-xl border border-slate-800 text-xs">
+                    <div className="flex items-center bg-slate-950 p-0.5 sm:p-1 rounded-xl border border-slate-800 text-xs flex-1 sm:flex-initial justify-center">
                       <button
-                        onClick={() => setDualActivePane('left')}
-                        className={`px-3 py-1.5 rounded-lg font-medium transition-all cursor-pointer flex items-center gap-1.5 ${
+                        onClick={() => {
+                          setDualActivePane('left');
+                          setMobileDualTab('screen1');
+                        }}
+                        className={`px-2.5 sm:px-3 py-1.5 rounded-lg font-medium transition-all cursor-pointer flex items-center gap-1 text-[11px] ${
                           dualActivePane === 'left'
-                            ? 'bg-blue-600 text-white shadow-md shadow-blue-500/30'
+                            ? 'bg-blue-600 text-white shadow-md shadow-blue-500/30 font-bold'
                             : 'text-slate-400 hover:text-white'
                         }`}
                       >
-                        {dualActivePane === 'left' && <CheckCircle2 className="w-3.5 h-3.5 text-blue-200" />}
+                        {dualActivePane === 'left' && <CheckCircle2 className="w-3 h-3 text-blue-200" />}
                         Screen 1 (p.{leftPage})
                       </button>
 
                       <button
-                        onClick={() => setDualActivePane('right')}
-                        className={`px-3 py-1.5 rounded-lg font-medium transition-all cursor-pointer flex items-center gap-1.5 ${
+                        onClick={() => {
+                          setDualActivePane('right');
+                          setMobileDualTab('screen2');
+                        }}
+                        className={`px-2.5 sm:px-3 py-1.5 rounded-lg font-medium transition-all cursor-pointer flex items-center gap-1 text-[11px] ${
                           dualActivePane === 'right'
-                            ? 'bg-blue-600 text-white shadow-md shadow-blue-500/30'
+                            ? 'bg-blue-600 text-white shadow-md shadow-blue-500/30 font-bold'
                             : 'text-slate-400 hover:text-white'
                         }`}
                       >
-                        {dualActivePane === 'right' && <CheckCircle2 className="w-3.5 h-3.5 text-blue-200" />}
+                        {dualActivePane === 'right' && <CheckCircle2 className="w-3 h-3 text-blue-200" />}
                         Screen 2 (p.{rightPage})
                       </button>
                     </div>
@@ -312,30 +384,60 @@ export const PDFViewer: React.FC = () => {
                     {/* Swap Screens Button */}
                     <button
                       onClick={swapDualPages}
-                      className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition-colors cursor-pointer flex items-center gap-1 text-xs"
+                      className="p-1.5 sm:p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition-colors cursor-pointer flex items-center gap-1 text-xs shrink-0"
                       title="Swap Left and Right Screen Pages (⇄)"
                     >
                       <ArrowLeftRight className="w-3.5 h-3.5 text-amber-400" />
                       <span className="hidden sm:inline">Swap</span>
                     </button>
                   </div>
+
+                  {/* Mobile Screen Tab Switcher (Show Screen 1, Screen 2, or Both Stacked on small devices) */}
+                  <div className="flex lg:hidden items-center bg-slate-950/80 p-0.5 rounded-xl border border-slate-800 text-[10px] w-full justify-around">
+                    <button
+                      onClick={() => setMobileDualTab('screen1')}
+                      className={`py-1 px-2 rounded-lg font-medium transition-colors ${
+                        mobileDualTab === 'screen1' ? 'bg-blue-600 text-white' : 'text-slate-400'
+                      }`}
+                    >
+                      View Screen 1
+                    </button>
+                    <button
+                      onClick={() => setMobileDualTab('screen2')}
+                      className={`py-1 px-2 rounded-lg font-medium transition-colors ${
+                        mobileDualTab === 'screen2' ? 'bg-blue-600 text-white' : 'text-slate-400'
+                      }`}
+                    >
+                      View Screen 2
+                    </button>
+                    <button
+                      onClick={() => setMobileDualTab('both')}
+                      className={`py-1 px-2 rounded-lg font-medium transition-colors ${
+                        mobileDualTab === 'both' ? 'bg-blue-600 text-white' : 'text-slate-400'
+                      }`}
+                    >
+                      View Both (Stack)
+                    </button>
+                  </div>
                 </div>
 
                 {/* The Two Screen Containers */}
-                <div className="flex flex-wrap items-start justify-center gap-6 w-full max-w-full">
+                <div className="flex flex-col lg:flex-row items-center lg:items-start justify-center gap-6 w-full max-w-full">
                   {/* Left Screen (Screen 1) */}
                   <div
                     onClick={() => setDualActivePane('left')}
-                    className={`flex flex-col items-center rounded-2xl p-2.5 transition-all duration-150 relative ${
+                    className={`flex flex-col items-center rounded-2xl p-2 sm:p-2.5 transition-all duration-150 relative w-full lg:w-auto ${
+                      mobileDualTab === 'screen2' ? 'hidden lg:flex' : 'flex'
+                    } ${
                       dualActivePane === 'left'
                         ? 'ring-2 ring-blue-500 bg-blue-950/20 shadow-2xl shadow-blue-500/10 border border-blue-500/60'
                         : 'border border-slate-800 bg-slate-900/40 hover:border-slate-700'
                     }`}
                   >
                     {/* Screen 1 Header */}
-                    <div className="w-full flex items-center justify-between pb-2.5 px-1 border-b border-slate-800/80 mb-2 gap-2 text-xs">
+                    <div className="w-full flex items-center justify-between pb-2 px-1 border-b border-slate-800/80 mb-2 gap-2 text-xs">
                       <div className="flex items-center gap-1.5">
-                        <span className={`px-2.5 py-1 rounded-lg font-bold text-[11px] ${
+                        <span className={`px-2 py-0.5 rounded-lg font-bold text-[10px] sm:text-[11px] ${
                           dualActivePane === 'left'
                             ? 'bg-blue-600 text-white shadow-xs'
                             : 'bg-slate-800 text-slate-300'
@@ -344,12 +446,12 @@ export const PDFViewer: React.FC = () => {
                         </span>
 
                         {dualActivePane === 'left' ? (
-                          <span className="text-[10px] font-semibold text-blue-400 bg-blue-500/10 border border-blue-500/20 px-2 py-0.5 rounded-md flex items-center gap-1 animate-pulse">
-                            ● Active Target (Stamps Jump Here)
+                          <span className="text-[9px] sm:text-[10px] font-semibold text-blue-400 bg-blue-500/10 border border-blue-500/20 px-1.5 py-0.5 rounded-md flex items-center gap-1 animate-pulse">
+                            ● Active Target
                           </span>
                         ) : (
-                          <span className="text-[10px] text-slate-500 cursor-pointer hover:text-slate-300">
-                            Click to select
+                          <span className="text-[9px] sm:text-[10px] text-slate-500 cursor-pointer hover:text-slate-300">
+                            Tap to target
                           </span>
                         )}
                       </div>
@@ -357,12 +459,12 @@ export const PDFViewer: React.FC = () => {
                       {/* Screen 1 Page Navigation */}
                       <div 
                         onClick={(e) => e.stopPropagation()}
-                        className="flex items-center gap-1 bg-slate-950/80 px-2 py-0.5 rounded-lg border border-slate-800 font-mono text-[11px]"
+                        className="flex items-center gap-1 bg-slate-950/80 px-1.5 py-0.5 rounded-lg border border-slate-800 font-mono text-[10px] sm:text-[11px]"
                       >
                         <button
                           onClick={() => setDualLeftPage(leftPage - 1)}
                           disabled={leftPage <= 1}
-                          className="p-1 text-slate-400 hover:text-white disabled:opacity-30 cursor-pointer"
+                          className="p-0.5 text-slate-400 hover:text-white disabled:opacity-30 cursor-pointer"
                           title="Previous Page on Screen 1"
                         >
                           <ChevronLeft className="w-3.5 h-3.5" />
@@ -377,14 +479,14 @@ export const PDFViewer: React.FC = () => {
                             const val = parseInt(e.target.value);
                             if (!isNaN(val)) setDualLeftPage(val);
                           }}
-                          className="w-8 bg-slate-900 border border-slate-700 rounded px-1 py-0.5 text-center text-white focus:outline-hidden focus:border-blue-500"
+                          className="w-7 bg-slate-900 border border-slate-700 rounded px-1 py-0.5 text-center text-white focus:outline-hidden focus:border-blue-500"
                         />
-                        <span className="text-slate-500">/ {numPages}</span>
+                        <span className="text-slate-500">/{numPages}</span>
 
                         <button
                           onClick={() => setDualLeftPage(leftPage + 1)}
                           disabled={leftPage >= numPages}
-                          className="p-1 text-slate-400 hover:text-white disabled:opacity-30 cursor-pointer"
+                          className="p-0.5 text-slate-400 hover:text-white disabled:opacity-30 cursor-pointer"
                           title="Next Page on Screen 1"
                         >
                           <ChevronRight className="w-3.5 h-3.5" />
@@ -405,16 +507,18 @@ export const PDFViewer: React.FC = () => {
                   {/* Right Screen (Screen 2) */}
                   <div
                     onClick={() => setDualActivePane('right')}
-                    className={`flex flex-col items-center rounded-2xl p-2.5 transition-all duration-150 relative ${
+                    className={`flex flex-col items-center rounded-2xl p-2 sm:p-2.5 transition-all duration-150 relative w-full lg:w-auto ${
+                      mobileDualTab === 'screen1' ? 'hidden lg:flex' : 'flex'
+                    } ${
                       dualActivePane === 'right'
                         ? 'ring-2 ring-blue-500 bg-blue-950/20 shadow-2xl shadow-blue-500/10 border border-blue-500/60'
                         : 'border border-slate-800 bg-slate-900/40 hover:border-slate-700'
                     }`}
                   >
                     {/* Screen 2 Header */}
-                    <div className="w-full flex items-center justify-between pb-2.5 px-1 border-b border-slate-800/80 mb-2 gap-2 text-xs">
+                    <div className="w-full flex items-center justify-between pb-2 px-1 border-b border-slate-800/80 mb-2 gap-2 text-xs">
                       <div className="flex items-center gap-1.5">
-                        <span className={`px-2.5 py-1 rounded-lg font-bold text-[11px] ${
+                        <span className={`px-2 py-0.5 rounded-lg font-bold text-[10px] sm:text-[11px] ${
                           dualActivePane === 'right'
                             ? 'bg-blue-600 text-white shadow-xs'
                             : 'bg-slate-800 text-slate-300'
@@ -423,12 +527,12 @@ export const PDFViewer: React.FC = () => {
                         </span>
 
                         {dualActivePane === 'right' ? (
-                          <span className="text-[10px] font-semibold text-blue-400 bg-blue-500/10 border border-blue-500/20 px-2 py-0.5 rounded-md flex items-center gap-1 animate-pulse">
-                            ● Active Target (Stamps Jump Here)
+                          <span className="text-[9px] sm:text-[10px] font-semibold text-blue-400 bg-blue-500/10 border border-blue-500/20 px-1.5 py-0.5 rounded-md flex items-center gap-1 animate-pulse">
+                            ● Active Target
                           </span>
                         ) : (
-                          <span className="text-[10px] text-slate-500 cursor-pointer hover:text-slate-300">
-                            Click to select
+                          <span className="text-[9px] sm:text-[10px] text-slate-500 cursor-pointer hover:text-slate-300">
+                            Tap to target
                           </span>
                         )}
                       </div>
@@ -436,12 +540,12 @@ export const PDFViewer: React.FC = () => {
                       {/* Screen 2 Page Navigation */}
                       <div 
                         onClick={(e) => e.stopPropagation()}
-                        className="flex items-center gap-1 bg-slate-950/80 px-2 py-0.5 rounded-lg border border-slate-800 font-mono text-[11px]"
+                        className="flex items-center gap-1 bg-slate-950/80 px-1.5 py-0.5 rounded-lg border border-slate-800 font-mono text-[10px] sm:text-[11px]"
                       >
                         <button
                           onClick={() => setDualRightPage(rightPage - 1)}
                           disabled={rightPage <= 1}
-                          className="p-1 text-slate-400 hover:text-white disabled:opacity-30 cursor-pointer"
+                          className="p-0.5 text-slate-400 hover:text-white disabled:opacity-30 cursor-pointer"
                           title="Previous Page on Screen 2"
                         >
                           <ChevronLeft className="w-3.5 h-3.5" />
@@ -456,14 +560,14 @@ export const PDFViewer: React.FC = () => {
                             const val = parseInt(e.target.value);
                             if (!isNaN(val)) setDualRightPage(val);
                           }}
-                          className="w-8 bg-slate-900 border border-slate-700 rounded px-1 py-0.5 text-center text-white focus:outline-hidden focus:border-blue-500"
+                          className="w-7 bg-slate-900 border border-slate-700 rounded px-1 py-0.5 text-center text-white focus:outline-hidden focus:border-blue-500"
                         />
-                        <span className="text-slate-500">/ {numPages}</span>
+                        <span className="text-slate-500">/{numPages}</span>
 
                         <button
                           onClick={() => setDualRightPage(rightPage + 1)}
                           disabled={rightPage >= numPages}
-                          className="p-1 text-slate-400 hover:text-white disabled:opacity-30 cursor-pointer"
+                          className="p-0.5 text-slate-400 hover:text-white disabled:opacity-30 cursor-pointer"
                           title="Next Page on Screen 2"
                         >
                           <ChevronRight className="w-3.5 h-3.5" />
@@ -552,7 +656,7 @@ const ContinuousPageWrapper: React.FC<{
     <div
       ref={containerRef}
       id={`page-container-${pageNumber}`}
-      className="w-full flex justify-center my-4"
+      className="w-full flex justify-center my-3 sm:my-4"
     >
       {shouldRender ? (
         <PageRenderer
@@ -565,7 +669,7 @@ const ContinuousPageWrapper: React.FC<{
       ) : (
         <div
           style={{
-            width: `${600 * scale}px`,
+            width: `${Math.min(window.innerWidth - 32, 600 * scale)}px`,
             height: `${800 * scale}px`,
           }}
           className="bg-slate-900/40 border border-slate-800/80 rounded-xl flex items-center justify-center shadow-lg"

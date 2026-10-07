@@ -33,6 +33,23 @@
   background: rgba(148, 163, 184, 0.8);
 }
 
+/* Hide scrollbar utility */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Touch action classes */
+.touch-drawing {
+  touch-action: none;
+}
+.touch-pan {
+  touch-action: pan-x pan-y pinch-zoom;
+}
+
 /* Text layer styling for PDF selection and search highlights */
 .textLayer {
   position: absolute;

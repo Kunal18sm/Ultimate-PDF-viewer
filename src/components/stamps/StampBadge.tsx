@@ -28,8 +28,8 @@ export const StampBadge: React.FC<StampBadgeProps> = ({ stamp }) => {
       className="absolute group z-20 select-none cursor-pointer border-2 border-dashed rounded-lg px-3 py-1.5 shadow-lg backdrop-blur-[1px] transition-all hover:scale-105 flex flex-col items-center justify-center min-w-[120px]"
       title="Double click to edit stamp"
     >
-      {/* Action buttons on hover */}
-      <div className="absolute -top-2.5 -right-2.5 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-30">
+      {/* Action buttons on hover / touch */}
+      <div className="absolute -top-2.5 -right-2.5 flex items-center gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity z-30">
         {/* Edit button */}
         <button
           onClick={(e) => {

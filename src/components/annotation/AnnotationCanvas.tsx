@@ -305,10 +305,10 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
       {textInput && (
         <div
           style={{
-            left: textInput.x * scale,
-            top: textInput.y * scale,
+            left: Math.min(Math.max(10, textInput.x * scale), Math.max(10, width - 230)),
+            top: Math.min(Math.max(10, textInput.y * scale), Math.max(10, height - 120)),
           }}
-          className="absolute z-30 bg-white dark:bg-slate-900 border-2 border-blue-500 rounded-xl p-2.5 shadow-2xl flex flex-col gap-2 min-w-[220px] animate-in zoom-in-95 duration-100"
+          className="absolute z-30 bg-white dark:bg-slate-900 border-2 border-blue-500 rounded-xl p-2.5 shadow-2xl flex flex-col gap-2 min-w-[200px] max-w-[90vw] animate-in zoom-in-95 duration-100"
         >
           <textarea
             autoFocus

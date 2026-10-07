@@ -19,17 +19,17 @@ export const VisualFiltersModal: React.FC = () => {
   const filters = activeDoc.filters;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-200">
-      <div className="bg-slate-900 border border-slate-700/80 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden flex flex-col">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-xs p-2.5 sm:p-4 animate-in fade-in duration-200">
+      <div className="bg-slate-900 border border-slate-700/80 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden flex flex-col max-h-[92dvh] my-auto">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-slate-900/80">
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20">
-              <Sliders className="w-5 h-5" />
+        <div className="flex items-center justify-between px-4 py-3 sm:px-6 sm:py-4 border-b border-slate-800 bg-slate-900/80 shrink-0">
+          <div className="flex items-center gap-2.5 sm:gap-3">
+            <div className="p-1.5 sm:p-2 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20">
+              <Sliders className="w-4 h-4 sm:w-5 sm:h-5" />
             </div>
             <div>
-              <h3 className="font-semibold text-white text-base">Display & Eye-Care Controls</h3>
-              <p className="text-xs text-slate-400">Customize brightness, contrast & reading modes</p>
+              <h3 className="font-semibold text-white text-sm sm:text-base">Display & Eye-Care</h3>
+              <p className="text-[11px] sm:text-xs text-slate-400">Brightness, contrast & modes</p>
             </div>
           </div>
           <button 
@@ -41,7 +41,7 @@ export const VisualFiltersModal: React.FC = () => {
         </div>
 
         {/* Content */}
-        <div className="p-6 space-y-5">
+        <div className="p-4 sm:p-6 overflow-y-auto space-y-4 sm:space-y-5">
           {/* Quick Presets */}
           <div>
             <label className="text-xs font-medium text-slate-300 block mb-2">Quick Reading Presets</label>

@@ -116,18 +116,18 @@ export const SecurityDeleteModal: React.FC = () => {
 
   return (
     <div 
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-xs p-4 animate-in fade-in duration-200"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-xs p-2.5 sm:p-4 animate-in fade-in duration-200"
       onClick={(e) => {
         if (e.target === e.currentTarget) closeSecurityModal();
       }}
     >
-      <div className={`bg-slate-900 border border-slate-700/80 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden flex flex-col transition-all ${
+      <div className={`bg-slate-900 border border-slate-700/80 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden flex flex-col max-h-[92dvh] my-auto transition-all ${
         shake ? 'animate-bounce ring-2 ring-red-500/60' : ''
       }`}>
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-slate-900/90">
-          <div className="flex items-center gap-3">
-            <div className={`p-2.5 rounded-xl border ${
+        <div className="flex items-center justify-between px-4 py-3 sm:px-6 sm:py-4 border-b border-slate-800 bg-slate-900/90 shrink-0">
+          <div className="flex items-center gap-2.5 sm:gap-3">
+            <div className={`p-2 sm:p-2.5 rounded-xl border ${
               mode === 'SETUP'
                 ? 'bg-blue-500/10 text-blue-400 border-blue-500/20'
                 : mode === 'RESET'
@@ -135,26 +135,26 @@ export const SecurityDeleteModal: React.FC = () => {
                 : 'bg-red-500/10 text-red-400 border-red-500/20'
             }`}>
               {mode === 'SETUP' ? (
-                <ShieldCheck className="w-5 h-5" />
+                <ShieldCheck className="w-4 h-4 sm:w-5 sm:h-5" />
               ) : mode === 'RESET' ? (
-                <RotateCcw className="w-5 h-5" />
+                <RotateCcw className="w-4 h-4 sm:w-5 sm:h-5" />
               ) : (
-                <Lock className="w-5 h-5" />
+                <Lock className="w-4 h-4 sm:w-5 sm:h-5" />
               )}
             </div>
             <div>
-              <h3 className="font-semibold text-white text-base">
+              <h3 className="font-semibold text-white text-sm sm:text-base">
                 {mode === 'SETUP'
-                  ? 'Set Master Delete Password'
+                  ? 'Set Master Password'
                   : mode === 'RESET'
                   ? 'Reset Master Password'
                   : (securityAction.title || 'Password Required')}
               </h3>
-              <p className="text-xs text-slate-400">
+              <p className="text-[11px] sm:text-xs text-slate-400">
                 {mode === 'SETUP'
-                  ? 'Create a 1-time master password to protect deletions'
+                  ? 'Create a 1-time master password'
                   : mode === 'RESET'
-                  ? 'Set a new master password without old password'
+                  ? 'Set a new master password'
                   : 'Security authorization check'}
               </p>
             </div>
@@ -169,7 +169,7 @@ export const SecurityDeleteModal: React.FC = () => {
         </div>
 
         {/* Content Body */}
-        <div className="p-6 space-y-4">
+        <div className="p-4 sm:p-6 overflow-y-auto space-y-3.5 sm:space-y-4">
           {/* Target Item Description in verify mode */}
           {mode === 'VERIFY' && securityAction.itemDescription && (
             <div className="p-3 bg-red-950/30 border border-red-800/40 rounded-xl flex items-start gap-2.5 text-xs text-red-200 leading-relaxed">

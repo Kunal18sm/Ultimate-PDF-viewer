@@ -169,3 +169,19 @@ export interface SecurityProtectedAction {
   onConfirm: () => void;
   isResetOnly?: boolean;
 }
+
+export interface PDFBlueprintData {
+  version: '1.0';
+  app: 'UltimatePDF';
+  exportedAt: string;
+  sourceDocName?: string;
+  numPages?: number;
+  stamps?: PageStamp[];
+  strokes?: DrawingStroke[];
+  shapes?: ShapeAnnotation[];
+  textNotes?: TextAnnotation[];
+  bookmarks?: number[];
+  filters?: Partial<VisualFilters>;
+  viewMode?: ViewMode;
+  rotation?: number;
+}

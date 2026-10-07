@@ -11,7 +11,8 @@ import type {
   PageStamp,
   SearchMatch,
   SecurityProtectedAction,
-  CustomSection
+  CustomSection,
+  PDFBlueprintData,
 } from '../types/pdf';
 import { pdfjsLib } from '../utils/pdfWorker';
 import { saveDocumentsToDB, loadDocumentsFromDB, deleteDocumentFromDB } from '../utils/db';
@@ -37,6 +38,7 @@ interface PDFContextType {
   isStampPickerOpen: boolean;
   isFiltersModalOpen: boolean;
   isShortcutsOpen: boolean;
+  isBlueprintModalOpen: boolean;
   securityAction: SecurityProtectedAction | null;
   searchQuery: string;
   searchResults: SearchMatch[];
@@ -44,6 +46,19 @@ interface PDFContextType {
   isSearching: boolean;
   laserPosition: { x: number; y: number } | null;
   isAutoSaved: boolean;
+
+  // Blueprint & Code Sync Engine
+  setIsBlueprintModalOpen: (open: boolean) => void;
+  exportDocumentBlueprint: (docId?: string) => string;
+  importDocumentBlueprint: (
+    code: string,
+    mode?: 'merge' | 'replace',
+    targetDocId?: string
+  ) => {
+    success: boolean;
+    message: string;
+    stats?: { stamps: number; strokes: number; shapes: number; textNotes: number; bookmarks: number };
+  };
 
   // Actions
   openFiles: (files: FileList | File[], targetSectionId?: string) => Promise<void>;
@@ -242,6 +257,7 @@ export const PDFProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [showPageStamps, setShowPageStamps] = useState<boolean>(true);
   const [isFiltersModalOpen, setIsFiltersModalOpen] = useState(false);
   const [isShortcutsOpen, setIsShortcutsOpen] = useState(false);
+  const [isBlueprintModalOpen, setIsBlueprintModalOpen] = useState(false);
   const [securityAction, setSecurityAction] = useState<SecurityProtectedAction | null>(null);
   const [laserPosition, setLaserPosition] = useState<{ x: number; y: number } | null>(null);
   const [dualActivePane, setDualActivePane] = useState<'left' | 'right'>('left');
@@ -789,6 +805,130 @@ export const PDFProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
   }, []);
 
+  // PDF Blueprint Code Engine (Portable JSON Sync without database)
+  const exportDocumentBlueprint = useCallback((docId?: string): string => {
+    const targetDoc = docId ? documents.find(d => d.id === docId) : activeDoc;
+    if (!targetDoc) return '';
+
+    const blueprint: PDFBlueprintData = {
+      version: '1.0',
+      app: 'UltimatePDF',
+      exportedAt: new Date().toISOString(),
+      sourceDocName: targetDoc.name,
+      numPages: targetDoc.numPages,
+      stamps: targetDoc.stamps || [],
+      strokes: targetDoc.strokes || [],
+      shapes: targetDoc.shapes || [],
+      textNotes: targetDoc.textNotes || [],
+      bookmarks: targetDoc.bookmarks || [],
+      filters: targetDoc.filters,
+      viewMode: targetDoc.viewMode,
+      rotation: targetDoc.rotation,
+    };
+
+    return JSON.stringify(blueprint, null, 2);
+  }, [documents, activeDoc]);
+
+  const importDocumentBlueprint = useCallback((
+    code: string,
+    mode: 'merge' | 'replace' = 'merge',
+    targetDocId?: string
+  ) => {
+    try {
+      if (!code || !code.trim()) {
+        return { success: false, message: 'Blueprint code cannot be empty.' };
+      }
+
+      const targetId = targetDocId || activeDocId;
+      if (!targetId) {
+        return { success: false, message: 'No active PDF document found to apply blueprint.' };
+      }
+
+      const parsed: PDFBlueprintData = JSON.parse(code.trim());
+
+      const importedStamps = Array.isArray(parsed.stamps) ? parsed.stamps : [];
+      const importedStrokes = Array.isArray(parsed.strokes) ? parsed.strokes : [];
+      const importedShapes = Array.isArray(parsed.shapes) ? parsed.shapes : [];
+      const importedTextNotes = Array.isArray(parsed.textNotes) ? parsed.textNotes : [];
+      const importedBookmarks = Array.isArray(parsed.bookmarks) ? parsed.bookmarks : [];
+
+      setDocuments(prevDocs =>
+        prevDocs.map(doc => {
+          if (doc.id !== targetId) return doc;
+
+          let newStamps = importedStamps;
+          let newStrokes = importedStrokes;
+          let newShapes = importedShapes;
+          let newTextNotes = importedTextNotes;
+          let newBookmarks = importedBookmarks;
+
+          if (mode === 'merge') {
+            const existingStampIds = new Set(doc.stamps.map(s => s.id));
+            const freshStamps = importedStamps.map(s =>
+              existingStampIds.has(s.id)
+                ? { ...s, id: `stamp_${Date.now()}_${Math.random().toString(36).substr(2, 6)}` }
+                : s
+            );
+            newStamps = [...doc.stamps, ...freshStamps];
+
+            const existingStrokeIds = new Set(doc.strokes.map(s => s.id));
+            const freshStrokes = importedStrokes.map(s =>
+              existingStrokeIds.has(s.id)
+                ? { ...s, id: `stroke_${Date.now()}_${Math.random().toString(36).substr(2, 6)}` }
+                : s
+            );
+            newStrokes = [...doc.strokes, ...freshStrokes];
+
+            const existingShapeIds = new Set(doc.shapes.map(sh => sh.id));
+            const freshShapes = importedShapes.map(sh =>
+              existingShapeIds.has(sh.id)
+                ? { ...sh, id: `shape_${Date.now()}_${Math.random().toString(36).substr(2, 6)}` }
+                : sh
+            );
+            newShapes = [...doc.shapes, ...freshShapes];
+
+            const existingTextIds = new Set(doc.textNotes.map(t => t.id));
+            const freshTextNotes = importedTextNotes.map(t =>
+              existingTextIds.has(t.id)
+                ? { ...t, id: `txt_${Date.now()}_${Math.random().toString(36).substr(2, 6)}` }
+                : t
+            );
+            newTextNotes = [...doc.textNotes, ...freshTextNotes];
+
+            newBookmarks = Array.from(new Set([...doc.bookmarks, ...importedBookmarks]));
+          }
+
+          return {
+            ...doc,
+            stamps: newStamps,
+            strokes: newStrokes,
+            shapes: newShapes,
+            textNotes: newTextNotes,
+            bookmarks: newBookmarks,
+            filters: parsed.filters ? { ...doc.filters, ...parsed.filters } : doc.filters,
+            viewMode: parsed.viewMode || doc.viewMode,
+            history: { past: [], future: [] },
+          };
+        })
+      );
+
+      return {
+        success: true,
+        message: `Applied blueprint successfully (${mode === 'merge' ? 'Merged' : 'Replaced'}).`,
+        stats: {
+          stamps: importedStamps.length,
+          strokes: importedStrokes.length,
+          shapes: importedShapes.length,
+          textNotes: importedTextNotes.length,
+          bookmarks: importedBookmarks.length,
+        },
+      };
+    } catch (err: any) {
+      console.error('Failed to import blueprint:', err);
+      return { success: false, message: `Syntax error in code: ${err.message || 'Invalid JSON format'}` };
+    }
+  }, [activeDocId]);
+
   return (
     <PDFContext.Provider
       value={{
@@ -808,6 +948,10 @@ export const PDFProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         isStampPickerOpen,
         isFiltersModalOpen,
         isShortcutsOpen,
+        isBlueprintModalOpen,
+        setIsBlueprintModalOpen,
+        exportDocumentBlueprint,
+        importDocumentBlueprint,
         securityAction,
         requestProtectedDelete,
         closeSecurityModal,

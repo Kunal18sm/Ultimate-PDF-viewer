@@ -14,7 +14,8 @@ import {
   Loader2,
   Pencil,
   Check,
-  X
+  X,
+  Code2,
 } from 'lucide-react';
 
 // Global thumbnail cache: Map<`${docId}_p${pageNum}`, dataUrl>
@@ -59,6 +60,7 @@ export const Sidebar: React.FC = () => {
     updateShape,
     removeTextNote,
     updateTextNote,
+    setIsBlueprintModalOpen,
   } = usePDF();
 
   const [pdfDoc, setPdfDoc] = useState<any>(null);
@@ -101,7 +103,7 @@ export const Sidebar: React.FC = () => {
 
   if (!isSidebarOpen) {
     return (
-      <div className="bg-slate-900 border-r border-slate-800 flex flex-col items-center py-3 px-1 z-30">
+      <div className="hidden md:flex bg-slate-900 border-r border-slate-800 flex-col items-center py-3 px-1 z-30 shrink-0">
         <button
           onClick={() => setIsSidebarOpen(true)}
           className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
@@ -115,67 +117,77 @@ export const Sidebar: React.FC = () => {
 
   if (!activeDoc) return null;
 
+  const totalAnnotationsCount = (activeDoc.strokes?.length || 0) + (activeDoc.shapes?.length || 0) + (activeDoc.textNotes?.length || 0);
+
   return (
-    <aside className="w-72 sm:w-80 bg-slate-900/95 border-r border-slate-800 flex flex-col h-full z-30 shrink-0 select-none backdrop-blur-md transition-all">
-      {/* Sidebar Header & Tabs */}
-      <div className="p-2.5 sm:p-3 border-b border-slate-800 flex items-center justify-between gap-1">
-        <div className="flex items-center gap-1 bg-slate-800/80 p-1 rounded-xl border border-slate-700/50 flex-1 overflow-x-auto no-scrollbar">
-          <button
-            onClick={() => setActiveSidebarTab('thumbnails')}
-            className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${
-              activeSidebarTab === 'thumbnails'
-                ? 'bg-blue-600 text-white shadow-xs'
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
-            title="Page Thumbnails"
-          >
-            <LayoutGrid className="w-3.5 h-3.5" />
-            <span className="text-[11px]">Pages ({activeDoc.numPages})</span>
-          </button>
+    <>
+      {/* Mobile Drawer Backdrop Scrim */}
+      <div
+        className="fixed inset-0 bg-black/60 backdrop-blur-xs z-40 md:hidden animate-in fade-in duration-200"
+        onClick={() => setIsSidebarOpen(false)}
+      />
+
+      <aside className="fixed md:static inset-y-0 left-0 z-50 md:z-30 w-[85vw] max-w-xs sm:max-w-sm md:w-72 lg:w-80 bg-slate-900/98 md:bg-slate-900/95 border-r border-slate-800 flex flex-col h-full shrink-0 select-none backdrop-blur-xl shadow-2xl md:shadow-none animate-in slide-in-from-left duration-200">
+        {/* Sidebar Header & Tabs */}
+        <div className="p-2.5 sm:p-3 border-b border-slate-800 flex items-center justify-between gap-1.5">
+          <div className="flex items-center gap-1 bg-slate-800/80 p-1 rounded-xl border border-slate-700/50 flex-1 overflow-x-auto no-scrollbar">
+            <button
+              onClick={() => setActiveSidebarTab('thumbnails')}
+              className={`px-2 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer flex items-center gap-1 shrink-0 ${
+                activeSidebarTab === 'thumbnails'
+                  ? 'bg-blue-600 text-white shadow-xs'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+              title="Page Thumbnails"
+            >
+              <LayoutGrid className="w-3.5 h-3.5" />
+              <span className="text-[11px]">Pages ({activeDoc.numPages})</span>
+            </button>
+
+            <button
+              onClick={() => setActiveSidebarTab('stamps')}
+              className={`px-2 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer flex items-center gap-1 shrink-0 ${
+                activeSidebarTab === 'stamps'
+                  ? 'bg-blue-600 text-white shadow-xs'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+              title="Page Stamps & Jump Markers"
+            >
+              <Tag className="w-3.5 h-3.5" />
+              <span className="text-[11px]">Stamps ({activeDoc.stamps?.length || 0})</span>
+            </button>
+
+            <button
+              onClick={() => setActiveSidebarTab('annotations')}
+              className={`px-2 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer flex items-center gap-1 shrink-0 ${
+                activeSidebarTab === 'annotations'
+                  ? 'bg-blue-600 text-white shadow-xs'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+              title="Drawings, Shapes & Notes"
+            >
+              <PenTool className="w-3.5 h-3.5" />
+              <span className="text-[11px]">Drawings ({totalAnnotationsCount})</span>
+            </button>
+
+            <button
+              onClick={() => setActiveSidebarTab('outline')}
+              className={`p-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer flex items-center gap-1 shrink-0 ${
+                activeSidebarTab === 'outline'
+                  ? 'bg-blue-600 text-white shadow-xs'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+              title="Table of Contents / Outline"
+            >
+              <ListTree className="w-3.5 h-3.5" />
+            </button>
+          </div>
 
           <button
-            onClick={() => setActiveSidebarTab('stamps')}
-            className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${
-              activeSidebarTab === 'stamps'
-                ? 'bg-blue-600 text-white shadow-xs'
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
-            title="Page Stamps & Jump Markers"
+            onClick={() => setIsSidebarOpen(false)}
+            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer shrink-0"
+            title="Collapse Sidebar"
           >
-            <Tag className="w-3.5 h-3.5" />
-            <span className="text-[11px]">Stamps ({activeDoc.stamps?.length || 0})</span>
-          </button>
-
-          <button
-            onClick={() => setActiveSidebarTab('outline')}
-            className={`p-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${
-              activeSidebarTab === 'outline'
-                ? 'bg-blue-600 text-white shadow-xs'
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
-            title="Table of Contents"
-          >
-            <ListTree className="w-3.5 h-3.5" />
-          </button>
-
-          <button
-            onClick={() => setActiveSidebarTab('annotations')}
-            className={`p-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${
-              activeSidebarTab === 'annotations'
-                ? 'bg-blue-600 text-white shadow-xs'
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
-            title="Drawings & Notes"
-          >
-            <PenTool className="w-3.5 h-3.5" />
-          </button>
-        </div>
-
-        <button
-          onClick={() => setIsSidebarOpen(false)}
-          className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer shrink-0"
-          title="Collapse Sidebar"
-        >
           <ChevronLeft className="w-4 h-4" />
         </button>
       </div>
@@ -221,12 +233,21 @@ export const Sidebar: React.FC = () => {
         )}
       </div>
 
-      {/* Sidebar Footer Metadata */}
-      <div className="p-3 border-t border-slate-800 bg-slate-900/60 text-[11px] text-slate-400 flex items-center justify-between">
-        <span className="truncate max-w-[160px]" title={activeDoc.name}>{activeDoc.name}</span>
-        <span className="font-mono">{activeDoc.currentPage} / {activeDoc.numPages}</span>
+      {/* Sidebar Footer Metadata & PDF Code Sync */}
+      <div className="p-2.5 sm:p-3 border-t border-slate-800 bg-slate-950/60 text-[11px] text-slate-400 flex items-center justify-between gap-2">
+        <button
+          onClick={() => setIsBlueprintModalOpen(true)}
+          className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-blue-600/15 hover:bg-blue-600/25 border border-blue-500/30 text-blue-300 hover:text-white font-semibold cursor-pointer transition-all shadow-xs shrink-0"
+          title="Export / Import PDF Blueprint Code (Sync across devices without database)"
+        >
+          <Code2 className="w-3.5 h-3.5 text-blue-400" />
+          <span>PDF Code</span>
+        </button>
+
+        <span className="font-mono text-slate-400">{activeDoc.currentPage} / {activeDoc.numPages}</span>
       </div>
     </aside>
+    </>
   );
 };
 
@@ -583,7 +604,7 @@ const AnnotationsList: React.FC<{
                   e.stopPropagation();
                   startEdit(s.id, s.name || '', s.color);
                 }}
-                className="opacity-0 group-hover:opacity-100 p-1 rounded-md text-slate-400 hover:text-blue-400 hover:bg-blue-500/10 transition-all cursor-pointer"
+                className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 p-1 rounded-md text-slate-400 hover:text-blue-400 hover:bg-blue-500/10 transition-all cursor-pointer"
                 title="Edit / Rename drawing"
               >
                 <Pencil className="w-3 h-3" />
@@ -597,7 +618,7 @@ const AnnotationsList: React.FC<{
                     onConfirm: () => onDeleteStroke(s.id),
                   });
                 }}
-                className="opacity-0 group-hover:opacity-100 text-slate-500 hover:text-red-400 p-1 rounded-md hover:bg-red-500/10 transition-all cursor-pointer"
+                className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 text-slate-500 hover:text-red-400 p-1 rounded-md hover:bg-red-500/10 transition-all cursor-pointer"
                 title="Delete drawing"
               >
                 <Trash2 className="w-3 h-3" />
@@ -696,7 +717,7 @@ const AnnotationsList: React.FC<{
                   e.stopPropagation();
                   startEdit(sh.id, sh.name || '', sh.color);
                 }}
-                className="opacity-0 group-hover:opacity-100 p-1 rounded-md text-slate-400 hover:text-blue-400 hover:bg-blue-500/10 transition-all cursor-pointer"
+                className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 p-1 rounded-md text-slate-400 hover:text-blue-400 hover:bg-blue-500/10 transition-all cursor-pointer"
                 title="Edit / Rename shape"
               >
                 <Pencil className="w-3 h-3" />
@@ -710,7 +731,7 @@ const AnnotationsList: React.FC<{
                     onConfirm: () => onDeleteShape(sh.id),
                   });
                 }}
-                className="opacity-0 group-hover:opacity-100 text-slate-500 hover:text-red-400 p-1 rounded-md hover:bg-red-500/10 transition-all cursor-pointer"
+                className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 text-slate-500 hover:text-red-400 p-1 rounded-md hover:bg-red-500/10 transition-all cursor-pointer"
                 title="Delete shape"
               >
                 <Trash2 className="w-3 h-3" />
@@ -806,7 +827,7 @@ const AnnotationsList: React.FC<{
                   e.stopPropagation();
                   startEdit(t.id, t.text || '', t.color || '#3b82f6');
                 }}
-                className="opacity-0 group-hover:opacity-100 p-1 rounded-md text-slate-400 hover:text-blue-400 hover:bg-blue-500/10 transition-all cursor-pointer"
+                className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 p-1 rounded-md text-slate-400 hover:text-blue-400 hover:bg-blue-500/10 transition-all cursor-pointer"
                 title="Edit text note"
               >
                 <Pencil className="w-3 h-3" />
@@ -820,7 +841,7 @@ const AnnotationsList: React.FC<{
                     onConfirm: () => onDeleteText(t.id),
                   });
                 }}
-                className="opacity-0 group-hover:opacity-100 text-slate-500 hover:text-red-400 p-1 rounded-md hover:bg-red-500/10 transition-all cursor-pointer"
+                className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 text-slate-500 hover:text-red-400 p-1 rounded-md hover:bg-red-500/10 transition-all cursor-pointer"
                 title="Delete text note"
               >
                 <Trash2 className="w-3 h-3" />

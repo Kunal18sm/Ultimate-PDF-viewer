@@ -19,7 +19,7 @@ interface PageRendererProps {
   };
 }
 
-export const PageRenderer: React.FC<PageRendererProps> = ({
+export const PageRenderer: React.FC<PageRendererProps> = React.memo(({
   pageNumber,
   pdfDoc,
   scale,
@@ -30,6 +30,11 @@ export const PageRenderer: React.FC<PageRendererProps> = ({
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const textLayerRef = useRef<HTMLDivElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
+
+  // Cached base dimensions (scale 1.0)
+  const baseDimRef = useRef<{ width: number; height: number } | null>(null);
+  const lastRenderedScaleRef = useRef<number>(0);
+  const debounceTimerRef = useRef<any>(null);
 
   const [pageSize, setPageSize] = useState<{ width: number; height: number; originalWidth: number; originalHeight: number }>({
     width: 0,
@@ -54,11 +59,22 @@ export const PageRenderer: React.FC<PageRendererProps> = ({
     return parts.join(' ');
   }, [filters]);
 
+  // Immediately update container dimensions based on cached base dimensions when scale changes
+  useEffect(() => {
+    if (baseDimRef.current) {
+      setPageSize(prev => ({
+        ...prev,
+        width: Math.floor(baseDimRef.current!.width * scale),
+        height: Math.floor(baseDimRef.current!.height * scale),
+      }));
+    }
+  }, [scale]);
+
   useEffect(() => {
     let isCancelled = false;
     let renderTask: any = null;
 
-    const renderPage = async () => {
+    const executeRender = async () => {
       if (!pdfDoc) return;
 
       try {
@@ -71,6 +87,11 @@ export const PageRenderer: React.FC<PageRendererProps> = ({
         const width = Math.floor(viewport.width);
         const height = Math.floor(viewport.height);
 
+        baseDimRef.current = {
+          width: baseViewport.width,
+          height: baseViewport.height,
+        };
+
         setPageSize({
           width,
           height,
@@ -81,8 +102,8 @@ export const PageRenderer: React.FC<PageRendererProps> = ({
         const canvas = canvasRef.current;
         if (!canvas) return;
 
-        // Cap DPR at 1.75 to balance razor-sharp text with high rendering speed & low RAM
-        const dpr = Math.min(window.devicePixelRatio || 1, 1.75);
+        // Cap DPR at 1.5 on mobile to avoid high-memory canvas allocations that freeze mobile GPUs
+        const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
         canvas.width = Math.floor(width * dpr);
         canvas.height = Math.floor(height * dpr);
         canvas.style.width = `${width}px`;
@@ -102,7 +123,9 @@ export const PageRenderer: React.FC<PageRendererProps> = ({
         await renderTask.promise;
         if (isCancelled) return;
 
-        // Render Text Layer in a single DOM fragment batch for peak speed
+        lastRenderedScaleRef.current = scale;
+
+        // Render Text Layer in a single DOM fragment batch
         const textLayerDiv = textLayerRef.current;
         if (textLayerDiv) {
           textLayerDiv.innerHTML = '';
@@ -156,10 +179,27 @@ export const PageRenderer: React.FC<PageRendererProps> = ({
       }
     };
 
-    renderPage();
+    // If only scale changed and canvas was previously rendered, debounce to avoid thrashing worker
+    const isScaleOnlyChange = lastRenderedScaleRef.current > 0 && lastRenderedScaleRef.current !== scale;
+    const debounceMs = isScaleOnlyChange ? 150 : 0;
+
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
+
+    if (debounceMs > 0) {
+      debounceTimerRef.current = setTimeout(() => {
+        executeRender();
+      }, debounceMs);
+    } else {
+      executeRender();
+    }
 
     return () => {
       isCancelled = true;
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
       if (renderTask) {
         renderTask.cancel();
       }
@@ -175,7 +215,7 @@ export const PageRenderer: React.FC<PageRendererProps> = ({
         height: pageSize.height || 800 * scale,
         transform: 'translateZ(0)',
       }}
-      className="relative mx-auto my-4 bg-white shadow-2xl rounded-sm transition-shadow group select-none will-change-transform"
+      className="relative mx-auto my-4 bg-white shadow-2xl rounded-sm transition-all duration-75 group select-none will-change-transform"
     >
       {/* Visual Filter Container for PDF Rendering */}
       <div
@@ -234,4 +274,6 @@ export const PageRenderer: React.FC<PageRendererProps> = ({
       )}
     </div>
   );
-};
+});
+
+PageRenderer.displayName = 'PageRenderer';

@@ -41,10 +41,12 @@ export const PDFViewer: React.FC = () => {
     scrollTop: 0
   });
 
-  // Touch Pinch & Swipe tracking refs
+  // Touch Pinch tracking refs & content wrapper ref
+  const contentWrapperRef = useRef<HTMLDivElement | null>(null);
   const touchStartDistRef = useRef<number | null>(null);
   const touchStartZoomRef = useRef<number>(1.0);
-  const touchSwipeStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
+  const isPinchingRef = useRef<boolean>(false);
+  const pinchCurrentScaleRef = useRef<number>(1.0);
 
   // Load PDF.js doc instance via singleton cache to avoid duplicate parsing
   useEffect(() => {
@@ -89,7 +91,7 @@ export const PDFViewer: React.FC = () => {
   // Scroll to active page in continuous view ONLY when initiated programmatically
   useEffect(() => {
     if (!activeDoc || activeDoc.viewMode !== 'continuous') return;
-    if (isUserScrollingRef.current) return; // Ignore if user is manually scrolling
+    if (isUserScrollingRef.current) return;
 
     const pageEl = document.getElementById(`page-container-${activeDoc.currentPage}`);
     if (pageEl && containerRef.current) {
@@ -108,24 +110,32 @@ export const PDFViewer: React.FC = () => {
     const container = containerRef.current;
     if (!container) return;
 
+    let wheelTimeout: any = null;
+    let accumulatedDelta = 0;
+
     const handleWheel = (e: WheelEvent) => {
       if (currentTool.tool === 'pan' || e.ctrlKey || e.metaKey) {
         e.preventDefault();
-        const zoomDelta = e.deltaY < 0 ? 0.12 : -0.12;
-        setZoom(prevZoom => {
-          const next = prevZoom + zoomDelta;
-          return Math.max(0.25, Math.min(4.0, Number(next.toFixed(2))));
-        });
+        accumulatedDelta += e.deltaY < 0 ? 0.12 : -0.12;
+        if (wheelTimeout) clearTimeout(wheelTimeout);
+        wheelTimeout = setTimeout(() => {
+          setZoom(prevZoom => {
+            const next = prevZoom + accumulatedDelta;
+            accumulatedDelta = 0;
+            return Math.max(0.25, Math.min(4.0, Number(next.toFixed(2))));
+          });
+        }, 30);
       }
     };
 
     container.addEventListener('wheel', handleWheel, { passive: false });
     return () => {
       container.removeEventListener('wheel', handleWheel);
+      if (wheelTimeout) clearTimeout(wheelTimeout);
     };
   }, [currentTool.tool, setZoom]);
 
-  // Handle Touch Gestures (Pinch to zoom + swipe in non-drawing mode)
+  // Handle Hardware-Accelerated Touch Gestures (Pinch to zoom)
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
@@ -141,35 +151,45 @@ export const PDFViewer: React.FC = () => {
         if (activeDoc) {
           touchStartZoomRef.current = activeDoc.zoom;
         }
-      } else if (e.touches.length === 1) {
-        // Track possible swipe if tool is select or pan
-        const isDrawingTool = ['pen', 'highlighter', 'rect', 'circle', 'arrow', 'line', 'eraser'].includes(currentTool.tool);
-        if (!isDrawingTool) {
-          touchSwipeStartRef.current = {
-            x: e.touches[0].clientX,
-            y: e.touches[0].clientY,
-            time: Date.now()
-          };
+        isPinchingRef.current = true;
+        pinchCurrentScaleRef.current = 1.0;
+        if (contentWrapperRef.current) {
+          contentWrapperRef.current.style.transformOrigin = 'center top';
+          contentWrapperRef.current.style.transition = 'none';
+          contentWrapperRef.current.style.willChange = 'transform';
         }
       }
     };
 
     const handleTouchMove = (e: TouchEvent) => {
-      if (e.touches.length === 2 && touchStartDistRef.current !== null) {
+      if (e.touches.length === 2 && touchStartDistRef.current !== null && isPinchingRef.current) {
         e.preventDefault();
         const dist = Math.hypot(
           e.touches[0].clientX - e.touches[1].clientX,
           e.touches[0].clientY - e.touches[1].clientY
         );
         const scaleFactor = dist / touchStartDistRef.current;
-        const newZoom = Math.max(0.3, Math.min(4.0, Number((touchStartZoomRef.current * scaleFactor).toFixed(2))));
-        setZoom(newZoom);
+        pinchCurrentScaleRef.current = scaleFactor;
+        if (contentWrapperRef.current) {
+          contentWrapperRef.current.style.transform = `scale(${scaleFactor})`;
+        }
       }
     };
 
     const handleTouchEnd = (e: TouchEvent) => {
-      if (e.touches.length < 2) {
+      if (e.touches.length < 2 && isPinchingRef.current) {
+        isPinchingRef.current = false;
         touchStartDistRef.current = null;
+        if (contentWrapperRef.current) {
+          contentWrapperRef.current.style.transform = '';
+          contentWrapperRef.current.style.willChange = '';
+        }
+        if (activeDoc) {
+          const finalZoom = Math.max(0.3, Math.min(4.0, Number((touchStartZoomRef.current * pinchCurrentScaleRef.current).toFixed(2))));
+          if (Math.abs(finalZoom - activeDoc.zoom) > 0.02) {
+            setZoom(finalZoom);
+          }
+        }
       }
     };
 
@@ -297,10 +317,10 @@ export const PDFViewer: React.FC = () => {
 
       {/* Pages View Rendering */}
       {pdfDoc && (
-        <div className="w-full flex flex-col items-center justify-center gap-4 sm:gap-8 pb-16">
+        <div ref={contentWrapperRef} className="w-full flex flex-col items-center justify-center gap-4 sm:gap-8 pb-16">
           {viewMode === 'single' && (
             <PageRenderer
-              key={`p-${activeDoc.id}-${currentPage}-${zoom}-${rotation}`}
+              key={`p-${activeDoc.id}-${currentPage}`}
               pageNumber={currentPage}
               pdfDoc={pdfDoc}
               scale={zoom}
@@ -312,7 +332,7 @@ export const PDFViewer: React.FC = () => {
           {viewMode === 'continuous' && (
             Array.from({ length: numPages }, (_, i) => i + 1).map(pageNumber => (
               <ContinuousPageWrapper
-                key={`p-${activeDoc.id}-${pageNumber}-${zoom}-${rotation}`}
+                key={`p-${activeDoc.id}-${pageNumber}`}
                 pageNumber={pageNumber}
                 currentPage={currentPage}
                 pdfDoc={pdfDoc}
@@ -495,7 +515,7 @@ export const PDFViewer: React.FC = () => {
                     </div>
 
                     <PageRenderer
-                      key={`p-${activeDoc.id}-left-${leftPage}-${zoom}-${rotation}`}
+                      key={`p-${activeDoc.id}-left-${leftPage}`}
                       pageNumber={leftPage}
                       pdfDoc={pdfDoc}
                       scale={zoom}
@@ -576,7 +596,7 @@ export const PDFViewer: React.FC = () => {
                     </div>
 
                     <PageRenderer
-                      key={`p-${activeDoc.id}-right-${rightPage}-${zoom}-${rotation}`}
+                      key={`p-${activeDoc.id}-right-${rightPage}`}
                       pageNumber={rightPage}
                       pdfDoc={pdfDoc}
                       scale={zoom}

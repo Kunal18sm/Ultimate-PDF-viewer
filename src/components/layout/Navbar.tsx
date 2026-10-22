@@ -61,9 +61,10 @@ export const Navbar: React.FC = () => {
     openPasswordSettings,
     isSidebarOpen,
     setIsSidebarOpen,
+    isFullscreen,
+    toggleFullscreen,
   } = usePDF();
 
-  const [isFullscreen, setIsFullscreen] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [isStorageModalOpen, setIsStorageModalOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -139,16 +140,6 @@ export const Navbar: React.FC = () => {
       renameSection(sectionId, sectionRenameInput.trim());
     }
     setRenamingSectionId(null);
-  };
-
-  const toggleFullscreen = () => {
-    if (!document.fullscreenElement) {
-      document.documentElement.requestFullscreen().catch(() => {});
-      setIsFullscreen(true);
-    } else {
-      document.exitFullscreen().catch(() => {});
-      setIsFullscreen(false);
-    }
   };
 
   const handleExport = async () => {

@@ -20,6 +20,8 @@ import {
   ZoomIn,
   ZoomOut,
   Maximize2,
+  Maximize,
+  Minimize,
   ChevronLeft,
   ChevronRight,
   FileText,
@@ -74,6 +76,8 @@ export const Toolbar: React.FC = () => {
     setIsSidebarOpen,
     setActiveSidebarTab,
     setIsBlueprintModalOpen,
+    isFullscreen,
+    toggleFullscreen,
   } = usePDF();
 
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -453,6 +457,14 @@ export const Toolbar: React.FC = () => {
                   title="Fit to Width"
                 >
                   <Maximize2 className="w-3 h-3" />
+                </button>
+
+                <button
+                  onClick={toggleFullscreen}
+                  className="p-0.5 text-slate-400 hover:text-white cursor-pointer ml-0.5"
+                  title={isFullscreen ? 'Exit Fullscreen' : 'Full Screen Mode (PDF Page Only)'}
+                >
+                  {isFullscreen ? <Minimize className="w-3.5 h-3.5 text-blue-400" /> : <Maximize className="w-3.5 h-3.5 text-blue-400" />}
                 </button>
               </div>
 
@@ -870,6 +882,18 @@ export const Toolbar: React.FC = () => {
                     </button>
                   </div>
                 </div>
+
+                {/* Full Screen Mode (PDF Only) */}
+                <button
+                  onClick={() => {
+                    toggleFullscreen();
+                    setActiveMobileSheet(null);
+                  }}
+                  className="w-full py-2 px-3 rounded-xl bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/30 text-blue-300 hover:text-white font-semibold flex items-center justify-center gap-2 cursor-pointer transition-all text-xs"
+                >
+                  <Maximize className="w-3.5 h-3.5 text-blue-400" />
+                  <span>Full Screen Mode (PDF Only)</span>
+                </button>
               </div>
             )}
           </div>

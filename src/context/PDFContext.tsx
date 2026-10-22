@@ -39,6 +39,7 @@ interface PDFContextType {
   isFiltersModalOpen: boolean;
   isShortcutsOpen: boolean;
   isBlueprintModalOpen: boolean;
+  isFullscreen: boolean;
   securityAction: SecurityProtectedAction | null;
   searchQuery: string;
   searchResults: SearchMatch[];
@@ -130,6 +131,9 @@ interface PDFContextType {
   setIsFiltersModalOpen: (open: boolean) => void;
   setIsShortcutsOpen: (open: boolean) => void;
   setLaserPosition: (pos: { x: number; y: number } | null) => void;
+  toggleFullscreen: () => void;
+  enterFullscreen: () => void;
+  exitFullscreen: () => void;
   
   // Security & Password-Protected Deletions
   requestProtectedDelete: (action: SecurityProtectedAction) => void;
@@ -258,6 +262,7 @@ export const PDFProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [isFiltersModalOpen, setIsFiltersModalOpen] = useState(false);
   const [isShortcutsOpen, setIsShortcutsOpen] = useState(false);
   const [isBlueprintModalOpen, setIsBlueprintModalOpen] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const [securityAction, setSecurityAction] = useState<SecurityProtectedAction | null>(null);
   const [laserPosition, setLaserPosition] = useState<{ x: number; y: number } | null>(null);
   const [dualActivePane, setDualActivePane] = useState<'left' | 'right'>('left');
@@ -929,6 +934,53 @@ export const PDFProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, [activeDocId]);
 
+  const enterFullscreen = useCallback(async () => {
+    try {
+      if (!document.fullscreenElement) {
+        await document.documentElement.requestFullscreen();
+      }
+    } catch (err) {
+      console.warn('Browser fullscreen request rejected:', err);
+    } finally {
+      setIsFullscreen(true);
+    }
+  }, []);
+
+  const exitFullscreen = useCallback(async () => {
+    try {
+      if (document.fullscreenElement && document.exitFullscreen) {
+        await document.exitFullscreen();
+      }
+    } catch (err) {
+      console.warn('Browser exit fullscreen error:', err);
+    } finally {
+      setIsFullscreen(false);
+    }
+  }, []);
+
+  const toggleFullscreen = useCallback(() => {
+    if (isFullscreen || Boolean(document.fullscreenElement)) {
+      exitFullscreen();
+    } else {
+      enterFullscreen();
+    }
+  }, [isFullscreen, enterFullscreen, exitFullscreen]);
+
+  // Synchronize state with native browser fullscreen changes (Esc key, F11, browser controls)
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      const isFull = Boolean(document.fullscreenElement);
+      setIsFullscreen(isFull);
+    };
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
+    };
+  }, []);
+
   return (
     <PDFContext.Provider
       value={{
@@ -949,6 +1001,7 @@ export const PDFProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         isFiltersModalOpen,
         isShortcutsOpen,
         isBlueprintModalOpen,
+        isFullscreen,
         setIsBlueprintModalOpen,
         exportDocumentBlueprint,
         importDocumentBlueprint,
@@ -1015,6 +1068,9 @@ export const PDFProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setIsFiltersModalOpen,
         setIsShortcutsOpen,
         setLaserPosition,
+        toggleFullscreen,
+        enterFullscreen,
+        exitFullscreen,
       }}
     >
       {children}

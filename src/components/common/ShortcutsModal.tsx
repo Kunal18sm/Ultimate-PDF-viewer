@@ -22,6 +22,7 @@ const SHORTCUT_LIST = [
   { key: 'B', desc: 'Toggle bookmark on page' },
   { key: 'F', desc: 'Open Display / Brightness panel' },
   { key: 'M', desc: 'Add Page Stamp modal' },
+  { key: 'Esc', desc: 'Exit Full Screen mode (Minimize)' },
 ];
 
 export const ShortcutsModal: React.FC = () => {

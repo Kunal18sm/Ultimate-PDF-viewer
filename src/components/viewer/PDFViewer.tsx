@@ -25,6 +25,7 @@ export const PDFViewer: React.FC = () => {
     setDualLeftPage,
     setDualRightPage,
     swapDualPages,
+    isFullscreen,
   } = usePDF();
 
   const [pdfDoc, setPdfDoc] = useState<any>(null);
@@ -351,7 +352,8 @@ export const PDFViewer: React.FC = () => {
             return (
               <div className="w-full flex flex-col items-center gap-4 sm:gap-5">
                 {/* Top Floating Dual Screen Controls Bar */}
-                <div className="bg-slate-900/95 border border-slate-700/80 rounded-2xl p-2.5 sm:px-4 sm:py-2 flex flex-col sm:flex-row items-center justify-between gap-2.5 sm:gap-3 backdrop-blur-md shadow-xl max-w-4xl w-full">
+                {!isFullscreen && (
+                  <div className="bg-slate-900/95 border border-slate-700/80 rounded-2xl p-2.5 sm:px-4 sm:py-2 flex flex-col sm:flex-row items-center justify-between gap-2.5 sm:gap-3 backdrop-blur-md shadow-xl max-w-4xl w-full">
                   <div className="flex items-center gap-2 w-full sm:w-auto">
                     <div className="p-1.5 rounded-lg bg-blue-500/10 text-blue-400 border border-blue-500/20 shrink-0">
                       <Columns2 className="w-4 h-4" />
@@ -440,6 +442,7 @@ export const PDFViewer: React.FC = () => {
                     </button>
                   </div>
                 </div>
+                )}
 
                 {/* The Two Screen Containers */}
                 <div className="flex flex-col lg:flex-row items-center lg:items-start justify-center gap-6 w-full max-w-full">

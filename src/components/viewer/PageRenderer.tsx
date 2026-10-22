@@ -248,6 +248,7 @@ export const PageRenderer: React.FC<PageRendererProps> = React.memo(({
           textSpan.style.left = `${tx[4]}px`;
           textSpan.style.top = `${tx[5] - fontHeight}px`;
           textSpan.style.fontSize = `${fontHeight}px`;
+          textSpan.style.lineHeight = `${fontHeight}px`;
           textSpan.style.fontFamily = item.fontName || 'sans-serif';
 
           fragment.appendChild(textSpan);

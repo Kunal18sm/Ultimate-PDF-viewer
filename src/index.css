@@ -83,21 +83,29 @@
   background: rgba(59, 130, 246, 0.4);
 }
 
+/* Clean, simple and legible search highlights */
 .search-highlight {
-  background-color: rgba(254, 240, 138, 0.95) !important; /* Luminous Yellow Highlighter */
-  color: #0f172a !important;
-  font-weight: 600 !important;
+  background-color: rgba(254, 240, 138, 0.45) !important; /* Soft natural yellow highlighter */
+  color: transparent !important;
   border-radius: 2px !important;
-  box-shadow: 0 0 0 1px rgba(202, 138, 4, 0.8), 0 0 8px rgba(250, 204, 21, 0.7) !important;
+  padding: 0 1px !important;
+  margin: 0 !important;
+  box-shadow: 0 0 0 1px rgba(202, 138, 4, 0.3) !important;
   line-height: inherit !important;
+  cursor: text !important;
 }
 
 .search-highlight.active {
-  background-color: #ea580c !important; /* Vivid Orange Active Match */
-  color: #ffffff !important;
-  font-weight: 700 !important;
+  background-color: rgba(251, 146, 60, 0.52) !important; /* Soft distinct orange highlighter */
+  color: transparent !important;
   border-radius: 2px !important;
-  box-shadow: 0 0 0 2px #ffffff, 0 0 0 4px #ea580c, 0 0 16px rgba(234, 88, 12, 0.9) !important;
+  outline: 2px solid #ea580c !important;
+  outline-offset: 1px !important;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.8) !important;
+  padding: 0 1px !important;
+  margin: 0 !important;
+  line-height: inherit !important;
+  cursor: text !important;
 }
 
 /* Custom visual filter classes */

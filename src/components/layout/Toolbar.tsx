@@ -38,7 +38,6 @@ import {
   SlidersHorizontal,
   Code2,
 } from 'lucide-react';
-import { TextSearchBox } from '../common/TextSearchBox';
 
 const PRESET_COLORS = [
   '#ef4444',
@@ -78,9 +77,10 @@ export const Toolbar: React.FC = () => {
     setIsBlueprintModalOpen,
     isFullscreen,
     toggleFullscreen,
+    isSearchOpen,
+    setIsSearchOpen,
   } = usePDF();
 
-  const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isShapeDropdownOpen, setIsShapeDropdownOpen] = useState(false);
   const [isDesktopToolbarOpen, setIsDesktopToolbarOpen] = useState(true);
 
@@ -1001,9 +1001,6 @@ export const Toolbar: React.FC = () => {
           </button>
         </div>
       </div>
-
-      {/* Floating Search Overlay */}
-      <TextSearchBox isOpen={isSearchOpen} onClose={() => setIsSearchOpen(false)} />
     </>
   );
 };

@@ -5,6 +5,19 @@ import { AnnotationCanvas } from '../annotation/AnnotationCanvas';
 import { StampBadge } from '../stamps/StampBadge';
 import { Bookmark } from 'lucide-react';
 
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+function escapeRegex(str: string): string {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 interface PageRendererProps {
   pageNumber: number;
   pdfDoc: any;
@@ -70,6 +83,14 @@ export const PageRenderer: React.FC<PageRendererProps> = React.memo(({
     }
   }, [scale]);
 
+  const textContentCacheRef = useRef<any>(null);
+
+  // Clear cached textContent when document or page changes
+  useEffect(() => {
+    textContentCacheRef.current = null;
+  }, [pdfDoc, pageNumber]);
+
+  // Effect 1: Render Canvas (Only runs when doc, page, scale, or rotation changes)
   useEffect(() => {
     let isCancelled = false;
     let renderTask: any = null;
@@ -124,53 +145,6 @@ export const PageRenderer: React.FC<PageRendererProps> = React.memo(({
         if (isCancelled) return;
 
         lastRenderedScaleRef.current = scale;
-
-        // Render Text Layer in a single DOM fragment batch
-        const textLayerDiv = textLayerRef.current;
-        if (textLayerDiv) {
-          textLayerDiv.innerHTML = '';
-          textLayerDiv.style.width = `${width}px`;
-          textLayerDiv.style.height = `${height}px`;
-
-          const textContent = await page.getTextContent();
-          if (isCancelled) return;
-
-          const fragment = document.createDocumentFragment();
-          const query = searchQuery.trim().toLowerCase();
-          const regex = query ? new RegExp(`(${searchQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi') : null;
-
-          let pageMatchCounter = 0;
-          const currentMatch = searchResults[currentSearchMatchIndex];
-          const isThisPageActiveMatch = currentMatch?.pageNumber === pageNumber;
-
-          for (const item of textContent.items as any[]) {
-            if (!item.str) continue;
-            const textSpan = document.createElement('span');
-            const text = item.str;
-
-            if (regex && text.toLowerCase().includes(query)) {
-              textSpan.innerHTML = text.replace(regex, (matchStr: string) => {
-                const isActive = isThisPageActiveMatch && pageMatchCounter === currentMatch.matchIndex;
-                pageMatchCounter++;
-                return `<mark class="search-highlight ${isActive ? 'active' : ''}">${matchStr}</mark>`;
-              });
-            } else {
-              textSpan.textContent = text;
-            }
-
-            const tx = pdfjsLib.Util.transform(viewport.transform, item.transform);
-            const fontHeight = Math.sqrt(tx[2] * tx[2] + tx[3] * tx[3]);
-            
-            textSpan.style.left = `${tx[4]}px`;
-            textSpan.style.top = `${tx[5] - fontHeight}px`;
-            textSpan.style.fontSize = `${fontHeight}px`;
-            textSpan.style.fontFamily = item.fontName || 'sans-serif';
-            
-            fragment.appendChild(textSpan);
-          }
-          textLayerDiv.appendChild(fragment);
-        }
-
         setIsLoading(false);
       } catch (err: any) {
         if (err?.name !== 'RenderingCancelledException') {
@@ -204,7 +178,104 @@ export const PageRenderer: React.FC<PageRendererProps> = React.memo(({
         renderTask.cancel();
       }
     };
-  }, [pdfDoc, pageNumber, scale, rotation, searchQuery, searchResults, currentSearchMatchIndex]);
+  }, [pdfDoc, pageNumber, scale, rotation]);
+
+  // Effect 2: Render Text Layer & Search Highlights (Runs fast without touching canvas)
+  useEffect(() => {
+    let isCancelled = false;
+
+    const renderTextLayer = async () => {
+      if (!pdfDoc) return;
+      const textLayerDiv = textLayerRef.current;
+      if (!textLayerDiv) return;
+
+      try {
+        const page = await pdfDoc.getPage(pageNumber);
+        if (isCancelled) return;
+
+        const viewport = page.getViewport({ scale, rotation });
+        const width = Math.floor(viewport.width);
+        const height = Math.floor(viewport.height);
+
+        textLayerDiv.style.width = `${width}px`;
+        textLayerDiv.style.height = `${height}px`;
+
+        let textContent = textContentCacheRef.current;
+        if (!textContent) {
+          textContent = await page.getTextContent();
+          if (isCancelled) return;
+          textContentCacheRef.current = textContent;
+        }
+
+        const query = searchQuery.trim().toLowerCase();
+        let regex: RegExp | null = null;
+        if (query) {
+          try {
+            regex = new RegExp(`(${escapeRegex(query)})`, 'gi');
+          } catch {
+            regex = null;
+          }
+        }
+
+        const fragment = document.createDocumentFragment();
+        let pageMatchCounter = 0;
+        let hasActiveMatchOnPage = false;
+
+        const currentMatch = searchResults[currentSearchMatchIndex];
+        const isThisPageActiveMatch = currentMatch?.pageNumber === pageNumber;
+
+        for (const item of textContent.items as any[]) {
+          if (!item.str) continue;
+          const textSpan = document.createElement('span');
+          const rawText = item.str;
+
+          if (regex && rawText.toLowerCase().includes(query)) {
+            const safeText = escapeHtml(rawText);
+            textSpan.innerHTML = safeText.replace(regex, (matchStr: string) => {
+              const targetIndex = currentMatch?.matchIndexOnPage ?? currentMatch?.matchIndex ?? 0;
+              const isActive = isThisPageActiveMatch && pageMatchCounter === targetIndex;
+              if (isActive) hasActiveMatchOnPage = true;
+              pageMatchCounter++;
+              return `<mark id="${isActive ? 'active-search-match' : ''}" class="search-highlight ${isActive ? 'active' : ''}">${matchStr}</mark>`;
+            });
+          } else {
+            textSpan.textContent = rawText;
+          }
+
+          const tx = pdfjsLib.Util.transform(viewport.transform, item.transform);
+          const fontHeight = Math.sqrt(tx[2] * tx[2] + tx[3] * tx[3]);
+
+          textSpan.style.left = `${tx[4]}px`;
+          textSpan.style.top = `${tx[5] - fontHeight}px`;
+          textSpan.style.fontSize = `${fontHeight}px`;
+          textSpan.style.fontFamily = item.fontName || 'sans-serif';
+
+          fragment.appendChild(textSpan);
+        }
+
+        textLayerDiv.innerHTML = '';
+        textLayerDiv.appendChild(fragment);
+
+        // If this page contains the active match, scroll it smoothly into view!
+        if (hasActiveMatchOnPage) {
+          requestAnimationFrame(() => {
+            const activeEl = textLayerDiv.querySelector('.search-highlight.active');
+            if (activeEl) {
+              activeEl.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+            }
+          });
+        }
+      } catch (err) {
+        console.error(`Page ${pageNumber} text layer error`, err);
+      }
+    };
+
+    renderTextLayer();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [pdfDoc, pageNumber, scale, rotation, searchQuery, currentSearchMatchIndex, searchResults]);
 
   return (
     <div

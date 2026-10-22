@@ -17,10 +17,13 @@ export const TextSearchBox: React.FC<TextSearchBoxProps> = ({ isOpen, onClose })
     nextSearchMatch, 
     prevSearchMatch, 
     clearSearch,
-    isSearching 
+    isSearching,
+    isFullscreen,
   } = usePDF();
 
   const inputRef = useRef<HTMLInputElement>(null);
+  const searchDebounceRef = useRef<any>(null);
+  const lastSubmittedQueryRef = useRef('');
 
   useEffect(() => {
     if (isOpen && inputRef.current) {
@@ -33,19 +36,28 @@ export const TextSearchBox: React.FC<TextSearchBoxProps> = ({ isOpen, onClose })
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
+      e.preventDefault();
+      if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+
       if (e.shiftKey) {
-        prevSearchMatch();
-      } else if (searchResults.length > 0) {
-        nextSearchMatch();
+        if (searchResults.length > 0) {
+          prevSearchMatch();
+        } else {
+          performSearch(searchQuery);
+        }
       } else {
-        performSearch(searchQuery);
+        if (searchQuery.trim() !== lastSubmittedQueryRef.current.trim() || searchResults.length === 0) {
+          lastSubmittedQueryRef.current = searchQuery;
+          performSearch(searchQuery);
+        } else {
+          nextSearchMatch();
+        }
       }
     } else if (e.key === 'Escape') {
+      e.preventDefault();
       onClose();
     }
   };
-
-  const searchDebounceRef = useRef<any>(null);
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
@@ -53,16 +65,22 @@ export const TextSearchBox: React.FC<TextSearchBoxProps> = ({ isOpen, onClose })
     if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
 
     if (!val.trim()) {
+      lastSubmittedQueryRef.current = '';
       clearSearch();
     } else {
       searchDebounceRef.current = setTimeout(() => {
+        lastSubmittedQueryRef.current = val;
         performSearch(val);
-      }, 250);
+      }, 200);
     }
   };
 
   return (
-    <div className="absolute top-2 sm:top-4 right-2 left-2 sm:left-auto sm:right-6 z-40 bg-slate-900/98 border border-slate-700/80 rounded-2xl shadow-2xl p-1.5 sm:p-2 flex items-center justify-between gap-1.5 sm:gap-2 backdrop-blur-xl animate-in slide-in-from-top-2 duration-150">
+    <div
+      className={`fixed top-3 sm:top-4 z-50 bg-slate-900/98 border border-slate-700/80 rounded-2xl shadow-2xl p-1.5 sm:p-2 flex items-center justify-between gap-1.5 sm:gap-2 backdrop-blur-xl animate-in slide-in-from-top-2 duration-150 max-w-[calc(100vw-1.5rem)] ${
+        isFullscreen ? 'right-3 sm:right-36 md:right-40' : 'right-3 sm:right-6'
+      }`}
+    >
       <div className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-2.5 py-1.5 bg-slate-800/80 rounded-xl border border-slate-700/50 flex-1 min-w-0">
         {isSearching ? (
           <Loader2 className="w-3.5 h-3.5 text-blue-400 animate-spin shrink-0" />

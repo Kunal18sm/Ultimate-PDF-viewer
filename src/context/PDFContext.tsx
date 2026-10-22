@@ -15,6 +15,7 @@ import type {
   PDFBlueprintData,
 } from '../types/pdf';
 import { pdfjsLib } from '../utils/pdfWorker';
+import { getOrLoadPdfDocument } from '../utils/pdfDocumentManager';
 import { saveDocumentsToDB, loadDocumentsFromDB, deleteDocumentFromDB } from '../utils/db';
 
 interface PDFContextType {
@@ -118,6 +119,10 @@ interface PDFContextType {
   canRedo: boolean;
   
   // Search
+  isSearchOpen: boolean;
+  setIsSearchOpen: (open: boolean | ((prev: boolean) => boolean)) => void;
+  openSearch: () => void;
+  closeSearch: () => void;
   setSearchQuery: (query: string) => void;
   performSearch: (query: string) => Promise<void>;
   nextSearchMatch: () => void;
@@ -268,10 +273,12 @@ export const PDFProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [dualActivePane, setDualActivePane] = useState<'left' | 'right'>('left');
 
   // Search state
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<SearchMatch[]>([]);
   const [currentSearchMatchIndex, setCurrentSearchMatchIndex] = useState(0);
   const [isSearching, setIsSearching] = useState(false);
+  const searchSeqRef = useRef(0);
 
   const activeDoc = documents.find(d => d.id === activeDocId) || null;
 
@@ -722,76 +729,131 @@ export const PDFProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const canUndo = (activeDoc?.history.past.length ?? 0) > 0;
   const canRedo = (activeDoc?.history.future.length ?? 0) > 0;
 
+  const openSearch = useCallback(() => {
+    setIsSearchOpen(true);
+  }, []);
+
+  const clearSearch = useCallback(() => {
+    searchSeqRef.current++;
+    setSearchQuery('');
+    setSearchResults([]);
+    setCurrentSearchMatchIndex(0);
+    setIsSearching(false);
+  }, []);
+
+  const closeSearch = useCallback(() => {
+    setIsSearchOpen(false);
+    clearSearch();
+  }, [clearSearch]);
+
+  // Clear search on active document switch
+  useEffect(() => {
+    clearSearch();
+    setIsSearchOpen(false);
+  }, [activeDocId, clearSearch]);
+
   // Search implementation
   const performSearch = useCallback(async (query: string) => {
-    if (!query.trim() || !activeDoc?.arrayBuffer) {
-      setSearchResults([]);
+    const trimmed = query.trim();
+    if (!trimmed || !activeDoc?.arrayBuffer) {
+      clearSearch();
       return;
     }
+
+    const currentSeq = ++searchSeqRef.current;
     setIsSearching(true);
+
     try {
-      const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(activeDoc.arrayBuffer.slice(0)) }).promise;
+      const pdf = await getOrLoadPdfDocument(activeDoc.id, activeDoc.arrayBuffer);
+      if (searchSeqRef.current !== currentSeq) return;
+
       const matches: SearchMatch[] = [];
-      const lowerQuery = query.toLowerCase();
+      const lowerQuery = trimmed.toLowerCase();
 
-      for (let i = 1; i <= pdf.numPages; i++) {
-        const page = await pdf.getPage(i);
+      for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+        if (searchSeqRef.current !== currentSeq) return;
+
+        const page = await pdf.getPage(pageNum);
         const textContent = await page.getTextContent();
-        const pageText = textContent.items
-          .map((item: any) => item.str)
-          .join(' ');
-        
-        const lowerPageText = pageText.toLowerCase();
-        let startIndex = 0;
-        let matchIdx = 0;
+        let matchIndexOnPage = 0;
 
-        while ((startIndex = lowerPageText.indexOf(lowerQuery, startIndex)) !== -1) {
-          const snippetStart = Math.max(0, startIndex - 20);
-          const snippetEnd = Math.min(pageText.length, startIndex + lowerQuery.length + 30);
-          const snippet = (snippetStart > 0 ? '...' : '') + 
-                          pageText.substring(snippetStart, snippetEnd) + 
-                          (snippetEnd < pageText.length ? '...' : '');
+        for (let itemIdx = 0; itemIdx < textContent.items.length; itemIdx++) {
+          const item = textContent.items[itemIdx] as any;
+          if (!item.str) continue;
 
-          matches.push({
-            pageNumber: i,
-            matchIndex: matchIdx++,
-            snippet
-          });
-          startIndex += lowerQuery.length;
+          const lowerStr = item.str.toLowerCase();
+          let startIndex = 0;
+
+          while ((startIndex = lowerStr.indexOf(lowerQuery, startIndex)) !== -1) {
+            const snippetStart = Math.max(0, startIndex - 20);
+            const snippetEnd = Math.min(item.str.length, startIndex + lowerQuery.length + 30);
+            const snippet = (snippetStart > 0 ? '...' : '') + 
+                            item.str.substring(snippetStart, snippetEnd) + 
+                            (snippetEnd < item.str.length ? '...' : '');
+
+            matches.push({
+              id: `match_p${pageNum}_${matches.length}`,
+              pageNumber: pageNum,
+              matchIndexOnPage: matchIndexOnPage++,
+              globalIndex: matches.length,
+              matchIndex: matchIndexOnPage - 1,
+              snippet,
+            });
+
+            startIndex += lowerQuery.length;
+          }
         }
       }
+
+      if (searchSeqRef.current !== currentSeq) return;
 
       setSearchResults(matches);
       setCurrentSearchMatchIndex(0);
       if (matches.length > 0) {
         setCurrentPage(matches[0].pageNumber);
+        requestAnimationFrame(() => {
+          const el = document.getElementById('active-search-match') || document.querySelector('.search-highlight.active');
+          if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+          }
+        });
       }
     } catch (err) {
       console.error('Search failed', err);
     } finally {
-      setIsSearching(false);
+      if (searchSeqRef.current === currentSeq) {
+        setIsSearching(false);
+      }
     }
-  }, [activeDoc, setCurrentPage]);
+  }, [activeDoc?.id, activeDoc?.arrayBuffer, setCurrentPage, clearSearch]);
 
   const nextSearchMatch = useCallback(() => {
     if (searchResults.length === 0) return;
     const nextIdx = (currentSearchMatchIndex + 1) % searchResults.length;
     setCurrentSearchMatchIndex(nextIdx);
-    setCurrentPage(searchResults[nextIdx].pageNumber);
+    const targetMatch = searchResults[nextIdx];
+    setCurrentPage(targetMatch.pageNumber);
+    requestAnimationFrame(() => {
+      const el = document.getElementById('active-search-match') || document.querySelector('.search-highlight.active');
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+      }
+    });
   }, [searchResults, currentSearchMatchIndex, setCurrentPage]);
 
   const prevSearchMatch = useCallback(() => {
     if (searchResults.length === 0) return;
     const prevIdx = (currentSearchMatchIndex - 1 + searchResults.length) % searchResults.length;
     setCurrentSearchMatchIndex(prevIdx);
-    setCurrentPage(searchResults[prevIdx].pageNumber);
+    const targetMatch = searchResults[prevIdx];
+    setCurrentPage(targetMatch.pageNumber);
+    requestAnimationFrame(() => {
+      const el = document.getElementById('active-search-match') || document.querySelector('.search-highlight.active');
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+      }
+    });
   }, [searchResults, currentSearchMatchIndex, setCurrentPage]);
-
-  const clearSearch = useCallback(() => {
-    setSearchQuery('');
-    setSearchResults([]);
-    setCurrentSearchMatchIndex(0);
-  }, []);
 
   const requestProtectedDelete = useCallback((action: SecurityProtectedAction) => {
     setSecurityAction(action);
@@ -1013,6 +1075,10 @@ export const PDFProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         searchResults,
         currentSearchMatchIndex,
         isSearching,
+        isSearchOpen,
+        setIsSearchOpen,
+        openSearch,
+        closeSearch,
         laserPosition,
         isAutoSaved,
         openFiles,

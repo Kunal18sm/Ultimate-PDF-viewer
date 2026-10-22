@@ -10,6 +10,7 @@ import { VisualFiltersModal } from './components/common/VisualFiltersModal';
 import { ShortcutsModal } from './components/common/ShortcutsModal';
 import { SecurityDeleteModal } from './components/common/SecurityDeleteModal';
 import { BlueprintModal } from './components/blueprint/BlueprintModal';
+import { TextSearchBox } from './components/common/TextSearchBox';
 
 const PDFStudioApp: React.FC = () => {
   const {
@@ -28,6 +29,9 @@ const PDFStudioApp: React.FC = () => {
     setIsShortcutsOpen,
     isFullscreen,
     exitFullscreen,
+    isSearchOpen,
+    setIsSearchOpen,
+    closeSearch,
   } = usePDF();
 
   // Global Keyboard Shortcuts
@@ -41,6 +45,12 @@ const PDFStudioApp: React.FC = () => {
       if (e.key === 'Escape' && isFullscreen) {
         e.preventDefault();
         exitFullscreen();
+        return;
+      }
+
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f') {
+        e.preventDefault();
+        setIsSearchOpen(true);
         return;
       }
 
@@ -137,6 +147,7 @@ const PDFStudioApp: React.FC = () => {
     securityAction,
     isFullscreen,
     exitFullscreen,
+    setIsSearchOpen,
     setIsStampPickerOpen,
     setIsFiltersModalOpen,
     setIsShortcutsOpen,
@@ -196,6 +207,9 @@ const PDFStudioApp: React.FC = () => {
           </button>
         </div>
       )}
+
+      {/* Search Overlay */}
+      <TextSearchBox isOpen={isSearchOpen} onClose={closeSearch} />
 
       {/* Modals & Dialogs */}
       <StampPickerModal />

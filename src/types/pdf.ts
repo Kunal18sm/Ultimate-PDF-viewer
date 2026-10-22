@@ -92,8 +92,11 @@ export interface VisualFilters {
 }
 
 export interface SearchMatch {
+  id: string;
   pageNumber: number;
-  matchIndex: number;
+  matchIndexOnPage: number;
+  globalIndex: number;
+  matchIndex?: number;
   snippet: string;
 }
 

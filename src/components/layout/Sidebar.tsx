@@ -118,6 +118,8 @@ export const Sidebar: React.FC = () => {
   if (!activeDoc) return null;
 
   const totalAnnotationsCount = (activeDoc.strokes?.length || 0) + (activeDoc.shapes?.length || 0) + (activeDoc.textNotes?.length || 0);
+  const completedStamps = activeDoc.stamps?.filter(s => s.completed).length || 0;
+  const totalStamps = activeDoc.stamps?.length || 0;
 
   return (
     <>
@@ -154,7 +156,7 @@ export const Sidebar: React.FC = () => {
               title="Page Stamps & Jump Markers"
             >
               <Tag className="w-3.5 h-3.5" />
-              <span className="text-[11px]">Stamps ({activeDoc.stamps?.length || 0})</span>
+              <span className="text-[11px]">Stamps {completedStamps > 0 ? `(${completedStamps}/${totalStamps})` : `(${totalStamps})`}</span>
             </button>
 
             <button

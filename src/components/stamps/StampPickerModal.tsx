@@ -59,6 +59,7 @@ export const StampPickerModal: React.FC = () => {
   const [customColor, setCustomColor] = useState('#10b981');
   const [isCustomMode, setIsCustomMode] = useState(true); // Custom Stamp is default
   const [stampPosition, setStampPosition] = useState<'top-right' | 'top-left' | 'center' | 'bottom-right'>('top-right');
+  const [isCompleted, setIsCompleted] = useState(false);
   
   const labelInputRef = useRef<HTMLInputElement | null>(null);
   const colorButtonsRef = useRef<(HTMLButtonElement | null)[]>([]);
@@ -73,6 +74,7 @@ export const StampPickerModal: React.FC = () => {
         setCustomNote(editingStamp.note || '');
         setCustomColor(editingStamp.color);
         setIsCustomMode(true);
+        setIsCompleted(Boolean(editingStamp.completed));
         if (editingStamp.preset && editingStamp.preset !== 'CUSTOM') {
           setSelectedPreset(editingStamp.preset);
         }
@@ -81,6 +83,7 @@ export const StampPickerModal: React.FC = () => {
         setCustomNote('');
         setCustomColor('#10b981');
         setIsCustomMode(true);
+        setIsCompleted(false);
       }
       
       const timer = setTimeout(() => {
@@ -129,6 +132,7 @@ export const StampPickerModal: React.FC = () => {
         color: finalColor,
         note: finalNote,
         preset: finalPreset,
+        completed: isCompleted,
       });
     } else {
       // Add mode: create new stamp
@@ -140,6 +144,7 @@ export const StampPickerModal: React.FC = () => {
         pageNumber: activeDoc.currentPage,
         x: coords.x,
         y: coords.y,
+        completed: isCompleted,
       });
     }
 
@@ -385,25 +390,65 @@ export const StampPickerModal: React.FC = () => {
             </div>
           </div>
 
+          {/* Chapter Completed Status Toggle */}
+          <div 
+            onClick={() => setIsCompleted(!isCompleted)}
+            className={`flex items-center justify-between p-3 rounded-xl border transition-all cursor-pointer select-none ${
+              isCompleted 
+                ? 'bg-emerald-950/30 border-emerald-500/50 ring-1 ring-emerald-500/30' 
+                : 'bg-slate-800/40 border-slate-700/60 hover:border-slate-600'
+            }`}
+          >
+            <div className="flex items-center gap-2.5">
+              <div className={`p-1.5 rounded-lg transition-colors ${isCompleted ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-800 text-slate-400'}`}>
+                <CheckCircle2 className="w-4 h-4" />
+              </div>
+              <div>
+                <span className={`text-xs font-semibold block transition-colors ${isCompleted ? 'text-emerald-300' : 'text-white'}`}>
+                  Mark as Completed (Done)
+                </span>
+                <span className="text-[10px] text-slate-400 block">
+                  Dulls color, adds strikethrough cut line &amp; green tick mark
+                </span>
+              </div>
+            </div>
+            <div className={`w-10 h-6 rounded-full transition-colors relative p-0.5 shrink-0 ${
+              isCompleted ? 'bg-emerald-500' : 'bg-slate-700'
+            }`}>
+              <div className={`w-5 h-5 rounded-full bg-white transition-transform ${
+                isCompleted ? 'translate-x-4' : 'translate-x-0'
+              }`} />
+            </div>
+          </div>
+
           {/* Live Preview of the Stamp */}
           <div className="p-4 bg-slate-950/60 rounded-xl border border-slate-800/80 flex flex-col items-center justify-center min-h-[90px]">
             <span className="text-[10px] text-slate-500 uppercase tracking-widest font-semibold mb-2">Live Stamp Preview</span>
             <div 
-              className="inline-flex flex-col items-center justify-center px-4 py-1.5 rounded-lg border-2 border-dashed transform -rotate-1 shadow-lg"
+              className={`inline-flex flex-col items-center justify-center px-4 py-1.5 rounded-lg border-2 border-dashed transform -rotate-1 shadow-lg transition-all ${
+                isCompleted ? 'opacity-80 ring-1 ring-slate-700' : ''
+              }`}
               style={{
-                borderColor: isCustomMode ? customColor : currentPreset?.color,
-                backgroundColor: `${isCustomMode ? customColor : currentPreset?.color}15`,
-                color: isCustomMode ? customColor : currentPreset?.color,
+                borderColor: isCompleted ? '#64748b' : (isCustomMode ? customColor : currentPreset?.color),
+                backgroundColor: isCompleted ? '#1e293b60' : `${isCustomMode ? customColor : currentPreset?.color}15`,
+                color: isCompleted ? '#94a3b8' : (isCustomMode ? customColor : currentPreset?.color),
               }}
             >
-              <span className="text-sm font-black tracking-wider uppercase">
-                {isCustomMode ? (customLabel.trim() || 'STAMP PREVIEW') : currentPreset?.label}
-              </span>
-              {(customNote.trim() || (!isCustomMode && currentPreset?.defaultNote)) && (
+              <div className="flex items-center gap-1.5">
+                {isCompleted && <Check className="w-3.5 h-3.5 text-emerald-400 stroke-[3]" />}
+                <span className={`text-sm font-black tracking-wider uppercase ${isCompleted ? 'line-through decoration-slate-400 decoration-2 text-slate-400' : ''}`}>
+                  {isCustomMode ? (customLabel.trim() || 'STAMP PREVIEW') : currentPreset?.label}
+                </span>
+              </div>
+              {isCompleted ? (
+                <span className="text-[8px] font-bold text-emerald-400 bg-emerald-500/15 border border-emerald-500/30 px-1.5 py-0.2 rounded-full uppercase tracking-wider mt-0.5">
+                  Completed ✓
+                </span>
+              ) : (customNote.trim() || (!isCustomMode && currentPreset?.defaultNote)) ? (
                 <span className="text-[10px] opacity-80 font-medium">
                   {customNote.trim() || currentPreset?.defaultNote}
                 </span>
-              )}
+              ) : null}
             </div>
           </div>
         </div>

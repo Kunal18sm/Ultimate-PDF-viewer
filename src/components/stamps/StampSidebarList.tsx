@@ -1,6 +1,6 @@
 import React from 'react';
 import { usePDF } from '../../context/PDFContext';
-import { Plus, Trash2, ArrowRight, Tag, Pencil, Eye, EyeOff } from 'lucide-react';
+import { Plus, Trash2, ArrowRight, Tag, Pencil, Eye, EyeOff, Check, CheckCircle2 } from 'lucide-react';
 
 export const StampSidebarList: React.FC = () => {
   const { 
@@ -12,6 +12,7 @@ export const StampSidebarList: React.FC = () => {
     setEditingStamp,
     showPageStamps,
     toggleShowPageStamps,
+    toggleStampComplete,
     requestProtectedDelete,
     dualActivePane,
     setDualActivePane,
@@ -28,6 +29,10 @@ export const StampSidebarList: React.FC = () => {
   }
 
   const stamps = activeDoc.stamps || [];
+  const completedCount = stamps.filter(s => s.completed).length;
+  const totalCount = stamps.length;
+  const progressPercent = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
+
   const isDual = activeDoc.viewMode === 'dual';
   const leftPage = activeDoc.dualLeftPage ?? activeDoc.currentPage ?? 1;
   const rightPage = activeDoc.dualRightPage ?? (leftPage < activeDoc.numPages ? leftPage + 1 : leftPage);
@@ -59,6 +64,29 @@ export const StampSidebarList: React.FC = () => {
           {showPageStamps ? <Eye className="w-3.5 h-3.5 text-blue-400" /> : <EyeOff className="w-3.5 h-3.5 text-amber-400" />}
         </button>
       </div>
+
+      {/* Chapter Completion Progress Tracker */}
+      {totalCount > 0 && (
+        <div className="px-3.5 py-2.5 bg-slate-900/90 border-b border-slate-800 flex flex-col gap-1.5 text-xs">
+          <div className="flex items-center justify-between text-[11px]">
+            <span className="text-slate-300 font-semibold flex items-center gap-1.5">
+              <CheckCircle2 className={`w-3.5 h-3.5 ${completedCount === totalCount ? 'text-emerald-400' : 'text-blue-400'}`} />
+              <span>Chapters Finished</span>
+            </span>
+            <span className="font-mono text-[11px]">
+              <span className="text-emerald-400 font-bold">{completedCount}</span>
+              <span className="text-slate-500"> / {totalCount}</span>
+              <span className="text-slate-400 ml-1 font-semibold">({progressPercent}%)</span>
+            </span>
+          </div>
+          <div className="w-full bg-slate-800/80 rounded-full h-1.5 overflow-hidden">
+            <div 
+              className="bg-gradient-to-r from-emerald-500 to-teal-400 h-full transition-all duration-300 rounded-full"
+              style={{ width: `${progressPercent}%` }}
+            />
+          </div>
+        </div>
+      )}
 
       {/* Dual Screen Target Banner */}
       {isDual && (
@@ -111,6 +139,7 @@ export const StampSidebarList: React.FC = () => {
             const isLeft = isDual && leftPage === stamp.pageNumber;
             const isRight = isDual && rightPage === stamp.pageNumber;
             const isCurrentPage = !isDual && activeDoc.currentPage === stamp.pageNumber;
+            const isCompleted = Boolean(stamp.completed);
 
             return (
               <div
@@ -119,25 +148,58 @@ export const StampSidebarList: React.FC = () => {
                 className={`group px-3 py-2.5 rounded-xl border transition-all cursor-pointer flex items-center justify-between ${
                   isLeft || isRight || isCurrentPage
                     ? 'bg-blue-600/15 border-blue-500 ring-1 ring-blue-500/40 shadow-xs'
+                    : isCompleted
+                    ? 'bg-slate-900/50 border-slate-800/70 hover:bg-slate-800/60'
                     : 'bg-slate-800/40 border-slate-800 hover:bg-slate-800/90 hover:border-slate-700'
                 }`}
               >
-                {/* Stamp Color Dot & Label */}
+                {/* Checkbox Tick Button + Stamp Color Dot + Label */}
                 <div className="flex items-center gap-2.5 min-w-0 pr-2">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleStampComplete(stamp.id);
+                    }}
+                    className={`w-5 h-5 rounded-lg flex items-center justify-center shrink-0 transition-all cursor-pointer hover:scale-110 ${
+                      isCompleted
+                        ? 'bg-emerald-500 text-white shadow-xs shadow-emerald-500/40 ring-1 ring-emerald-400/40'
+                        : 'border border-slate-600 hover:border-emerald-400 hover:bg-emerald-500/10 text-transparent hover:text-emerald-400/70 bg-slate-950/80'
+                    }`}
+                    title={isCompleted ? 'Mark chapter as Incomplete' : 'Mark chapter as Completed (Done)'}
+                  >
+                    <Check className="w-3.5 h-3.5 stroke-[3]" />
+                  </button>
+
                   <span
-                    className="w-2.5 h-2.5 rounded-full shrink-0 shadow-xs"
+                    className={`w-2 h-2 rounded-full shrink-0 shadow-xs transition-opacity ${
+                      isCompleted ? 'opacity-30' : 'opacity-100'
+                    }`}
                     style={{ backgroundColor: stamp.color }}
                   />
+
                   <div className="flex flex-col min-w-0">
-                    <span 
-                      className="text-xs font-bold tracking-wider truncate"
-                      style={{ color: stamp.color }}
-                      title={stamp.label}
-                    >
-                      {stamp.label}
-                    </span>
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <span 
+                        className={`text-xs font-bold tracking-wider truncate transition-all ${
+                          isCompleted 
+                            ? 'line-through text-slate-400 decoration-slate-500 decoration-2' 
+                            : ''
+                        }`}
+                        style={{ color: isCompleted ? undefined : stamp.color }}
+                        title={stamp.label}
+                      >
+                        {stamp.label}
+                      </span>
+                      {isCompleted && (
+                        <span className="text-[9px] font-bold text-emerald-400 bg-emerald-500/15 border border-emerald-500/30 px-1 py-0.2 rounded shrink-0">
+                          Done
+                        </span>
+                      )}
+                    </div>
                     {stamp.note && (
-                      <span className="text-[10px] text-slate-400 truncate max-w-[140px]">
+                      <span className={`text-[10px] truncate max-w-[140px] ${
+                        isCompleted ? 'text-slate-500' : 'text-slate-400'
+                      }`}>
                         {stamp.note}
                       </span>
                     )}

@@ -39,6 +39,7 @@ export interface PageStamp {
   x: number; // percentage (0 to 100) or pixel
   y: number; // percentage (0 to 100)
   createdAt: number;
+  completed?: boolean; // Chapter / topic completed status
 }
 
 export interface Point {

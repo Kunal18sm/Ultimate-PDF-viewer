@@ -105,6 +105,7 @@ interface PDFContextType {
   openStampEditor: (stamp: PageStamp) => void;
   addStamp: (stamp: Omit<PageStamp, 'id' | 'createdAt'>) => void;
   updateStamp: (stampId: string, updates: Partial<PageStamp>) => void;
+  toggleStampComplete: (stampId: string) => void;
   removeStamp: (stampId: string) => void;
   jumpToStamp: (stamp: PageStamp) => void;
   toggleBookmark: (pageNumber: number) => void;
@@ -648,6 +649,14 @@ export const PDFProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }));
   }, [updateActiveDoc, pushHistory]);
 
+  const toggleStampComplete = useCallback((stampId: string) => {
+    updateActiveDoc(doc => ({
+      ...doc,
+      history: pushHistory(doc),
+      stamps: doc.stamps.map(s => s.id === stampId ? { ...s, completed: !s.completed } : s)
+    }));
+  }, [updateActiveDoc, pushHistory]);
+
   const removeStamp = useCallback((stampId: string) => {
     updateActiveDoc(doc => ({
       ...doc,
@@ -1113,6 +1122,7 @@ export const PDFProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         openStampEditor,
         addStamp,
         updateStamp,
+        toggleStampComplete,
         removeStamp,
         jumpToStamp,
         toggleBookmark,

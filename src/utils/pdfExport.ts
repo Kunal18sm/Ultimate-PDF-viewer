@@ -146,9 +146,12 @@ export function renderAnnotationsToContext(
     ctx.translate(sx, sy);
     ctx.rotate(-0.08);
 
+    const isCompleted = Boolean(stamp.completed);
+    const stampColor = isCompleted ? '#64748b' : stamp.color;
+
     // Stamp Border & Background
-    ctx.fillStyle = stamp.color + '15';
-    ctx.strokeStyle = stamp.color;
+    ctx.fillStyle = isCompleted ? 'rgba(30, 41, 59, 0.4)' : stamp.color + '15';
+    ctx.strokeStyle = stampColor;
     ctx.lineWidth = 3 * scaleX;
     ctx.beginPath();
     ctx.roundRect(-stampWidth / 2, -stampHeight / 2, stampWidth, stampHeight, 6 * scaleX);
@@ -156,21 +159,36 @@ export function renderAnnotationsToContext(
     ctx.stroke();
 
     // Inner dashed border
-    ctx.strokeStyle = stamp.color + '80';
+    ctx.strokeStyle = isCompleted ? '#94a3b860' : stamp.color + '80';
     ctx.lineWidth = 1 * scaleX;
     ctx.setLineDash([4 * scaleX, 2 * scaleX]);
     ctx.strokeRect(-stampWidth / 2 + 3, -stampHeight / 2 + 3, stampWidth - 6, stampHeight - 6);
     ctx.setLineDash([]);
 
     // Stamp Label Text
-    ctx.fillStyle = stamp.color;
+    ctx.fillStyle = stampColor;
     ctx.font = `bold ${14 * scaleX}px sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(stamp.label, 0, stamp.note ? -6 * scaleX : 0);
+    const labelText = isCompleted ? `✓ ${stamp.label}` : stamp.label;
+    const textY = stamp.note ? -6 * scaleX : 0;
+    ctx.fillText(labelText, 0, textY);
+
+    // If completed, draw a strikethrough cut line across the label
+    if (isCompleted) {
+      const textMetrics = ctx.measureText(labelText);
+      const textWidth = textMetrics.width;
+      ctx.strokeStyle = '#94a3b8';
+      ctx.lineWidth = 2 * scaleX;
+      ctx.beginPath();
+      ctx.moveTo(-textWidth / 2 - 2 * scaleX, textY);
+      ctx.lineTo(textWidth / 2 + 2 * scaleX, textY);
+      ctx.stroke();
+    }
 
     if (stamp.note) {
       ctx.font = `${8 * scaleX}px sans-serif`;
+      ctx.fillStyle = isCompleted ? '#94a3b8' : stamp.color;
       ctx.fillText(stamp.note, 0, 10 * scaleX);
     }
 
